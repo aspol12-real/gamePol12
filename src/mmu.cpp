@@ -1,14 +1,46 @@
 #include "mmu.hpp"
-#include "cpu.hpp"
-#include "apu.hpp"
+
+
+
+#include <algorithm>
+
+void mmu::setBootRom(uint8_t* rom, size_t size) {
+    std::copy(rom, rom + size, bootRom);
+}
 
 void mmu::ld(uint8_t data, uint16_t address) {
-    if (0x0000 <= address <= 0x3FFF) { //romBank 0
+    if (startup && address <= 0xFF) {
+        return; //bootrom is read only
+    }
+    else if (address >= 0 && address <= 0x3FFF) { //romBank 0
         cart.romBank0[address] = data;
     }
-    else if (0x4000 <= address <= 0x7FFF) { //romBank 1-NN (depending on mapper)
-        cart.romBank1[address] = data;
+    else if (address >= 0x4000 && address <= 0x7FFF) { //romBank 1-NN (depending on mapper)
+        cart.romBank1[address % 0x3FFF] = data;
     }
+    else if (address >= 0xA000 && address <= 0xBFFF) { //External Cartridge Ram
+        cart.ERAM[address % 0x1FFF] = data;
+    }
+    else if (address >= 0xC000 && address <= 0xCFFF) {
+        WRAM_1[address % 0xFFF] = data;    
+    }
+    else if (address >= 0xD000 && address <= 0xDFFF) {
+        WRAM_2[address % 0xFFF] = data;
+    }
+}
+
+uint8_t  mmu::rd(uint16_t address) {
+    if (startup && address <= 0xFF) {
+        dataRet = bootRom[address];
+    }
+    else if (address >= 0 && address <= 0x3FFF) {
+        dataRet = cart.romBank0[address];
+    }
+    else if (address >= 0x4000 && address <= 0x7FFF) {
+        dataRet = cart.romBank0[address % 0x3FFF];
+    }
+
+    return dataRet;
 }
 
 /*

@@ -4,29 +4,52 @@
 #include <iostream>
 #include <fstream>
 
-void cpu::initialize() {
+void cpu::initialize(std::string rom) {
+    
+    mem.startup = true;
 
-    std::string BOOT_ROM = "src/dmg_boot.bin";
+    //LOAD BOOTROM
 
     std::ifstream file;
-    file.open(BOOT_ROM, std::ios::in | std::ios::binary);
+    file.open(rom, std::ios::in | std::ios::binary);
+
+    if (!file.is_open()) {
+        std::cout << "Could not locate source file: " << rom <<  "\n";
+        exit( 1 );
+    } else {
+        std::cout << "Loading rom file: " << rom << "\n";
+    }
+
+    file.seekg(0, std::ios::end);
+    size_t fileSize = file.tellg();
+    file.seekg(0);
+
+    if (fileSize < 0x4000 || fileSize > 0x800000) {
+        std::cout << "Invalid ROM size: " << fileSize << " bytes\n";
+        exit(1);
+    }
 
     char byte;
-    int index = 0;
-    while (file.get(byte) && index < 256) {
-        this->bootRom[index] = static_cast<uint8_t>(byte); 
-        index++;
+    int address = 0;
+
+    while (file.get(byte) && address < 0x8000) {
+        ld(byte, address);
+        address++;
     }
 
     file.close();
 
+
     PC = 0x0;
     SP = 0x0;
 
-    for (int i = 0; i < 256; i++) {
-        mem.ld(this->bootRom[i], i);
-    }
+
 }
+
+
+
+
+
 
 /*
 31 fe ff af 21 ff 9f 32 cb 7c 20 fb 21 26 ff e 11 3e 80 32 e2 c 3e f3 e2 32 3e 77 77 3e fc e0

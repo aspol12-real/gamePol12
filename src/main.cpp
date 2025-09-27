@@ -1,7 +1,6 @@
 #include <fstream>
 #include <cstdint>
 #include <iostream>
-#include <vector>
 #include <raylib.h>
 #include <cstdlib>
 #include <iomanip>
@@ -18,7 +17,8 @@ int main(int argc, char *argv[]){
 
     cpu gb;
     
-    gb.initialize();
+    std::string playerRom = argv[1];
+    gb.initialize(playerRom);
 
     if (argc < 2) {
         std::cout << "USAGE: ./gb [filename].gb \n";
@@ -29,17 +29,12 @@ int main(int argc, char *argv[]){
     InitWindow(screenWidth, screenHeight, "GB");
     SetTargetFPS(60);
 
-    std::cout << "\n\n BOOTROM: \n\n";
-        for (int i = 0; i < 256; i++) {
-            std::cout << std::hex << +gb.bootRom[i] << " ";
-        }
-    std::cout << "\n\n";
-
-    std::cout << "\n\n\n\n";
-        for (int i = 0; i < 0x3FFF; i++) {
-            std::cout << std::hex << +gb.mem.cart.romBank0[i] << " ";
+    std::cout << "\n\nBOOTROM: \n\n";
+        for (int i = 0; i < 0xFF; i++) {
+            std::cout << std::hex << +gb.mem.bootRom[i] << " ";
         }
     std::cout << "\n\n";    
+ 
     //main runtime
 
     while (!WindowShouldClose()) {
