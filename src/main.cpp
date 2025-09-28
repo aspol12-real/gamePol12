@@ -10,8 +10,8 @@
 #include "ppu.hpp"
 
 
-const int screenWidth  = 160 * 2;
-const int screenHeight = 144 * 2;
+const int screenWidth  = 160 * 4;
+const int screenHeight = 144 * 4;
 
 int main(int argc, char *argv[]){
 
@@ -29,16 +29,19 @@ int main(int argc, char *argv[]){
     InitWindow(screenWidth, screenHeight, "GB");
     SetTargetFPS(60);
 
-    std::cout << "\n\nBOOTROM: \n\n";
-        for (int i = 0; i < 0xFF; i++) {
-            std::cout << std::hex << +gb.mem.bootRom[i] << " ";
+    std::cout << "\n\n\n\n";
+        for (int i = 0; i < 0xFFFF; i++) {
+            std::cout << std::hex << +gb.mem.rd(i) << " ";
         }
     std::cout << "\n\n";    
  
     //main runtime
 
     while (!WindowShouldClose()) {
+        gb.execute();
+        
         ClearBackground(BLACK);
+    
         EndDrawing();
     }
 
