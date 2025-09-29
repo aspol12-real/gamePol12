@@ -1,2 +1,2 @@
 # gamePol12
- an attempt at yet another game boy emulator
+ unfinished attempt at a gameboy emulator
