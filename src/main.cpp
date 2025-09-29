@@ -13,6 +13,10 @@
 const int screenWidth  = 160 * 4;
 const int screenHeight = 144 * 4;
 
+bool run = false;
+
+const int instructionsPerFrame = 100;
+
 int main(int argc, char *argv[]){
 
     cpu gb;
@@ -29,19 +33,38 @@ int main(int argc, char *argv[]){
     InitWindow(screenWidth, screenHeight, "GB");
     SetTargetFPS(60);
 
-    std::cout << "\n\n\n\n";
-        for (int i = 0; i < 0xFFFF; i++) {
-            std::cout << std::hex << +gb.mem.rd(i) << " ";
-        }
-    std::cout << "\n\n";    
  
     //main runtime
 
     while (!WindowShouldClose()) {
-        gb.execute();
-        
+
+
+        if(run) {
+            if (IsKeyPressed(KEY_W)) {
+                run = false;
+            }
+            for (int i = 0; i < instructionsPerFrame; i++) {
+                gb.execute();
+            }
+        } else {
+            if (IsKeyPressed(KEY_S)) {
+                gb.execute();  
+            }
+            if (IsKeyPressed(KEY_Q)) {
+                run = true;
+            }
+        }
         ClearBackground(BLACK);
-    
+        
+
+        DrawText(TextFormat("AF: %04x", gb.AF), 0, 0, 20, RED);
+        DrawText(TextFormat("BC: %04x", gb.BC), 0, 30, 20, RED);
+        DrawText(TextFormat("DE: %04x", gb.DE), 0, 60, 20, RED);
+        DrawText(TextFormat("HL: %04x", gb.HL), 0, 90, 20, RED);
+        DrawText(TextFormat("SP: %04x", gb.SP), 0, 120, 20, RED);
+        DrawText(TextFormat("OPCODE: %02x", gb.mem.rd(gb.PC)), 0, 150, 20, RED);
+        DrawText(TextFormat("PC: %04x", gb.PC), 0, 180, 20, RED);
+
         EndDrawing();
     }
 
