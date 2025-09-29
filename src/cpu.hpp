@@ -11,26 +11,41 @@ class cpu {
         mmu mem;
         ppu graphics;
 
+        bool startup = false;
+
         const uint8_t zf   = 0b10000000; //Zero Flag
-        const uint8_t subf = 0b01000000; //Subtraction Flag
-        const uint8_t hcf  = 0b00100000; //Half-Carry Flag
+        const uint8_t nf = 0b01000000; //Subtraction Flag
+        const uint8_t hf  = 0b00100000; //Half-Carry Flag
         const uint8_t cf   = 0b00010000; //Carry Flag
 
-        uint8_t opcode;
+        uint8_t opcode = 0;
 
         //registers
-        uint16_t AF, BC, DE, HL;
-
+        uint16_t AF = 0x01B0;
+        uint16_t BC, DE, HL = 0x0000;
+        uint8_t dataRet = 0;
         uint16_t PC = 0;
-        uint16_t SP = 0;
+        uint16_t SP = 0xFFFE;
 
         //methods
         void initialize(std::string rom);
         void ld(uint8_t data, uint16_t address) {
             if (address >= 0x8000 && address <= 0x9FFF) {
                 graphics.VRAM[address - 0x8000] = data;
+            } else if (address >= 0xFE00 && address <= 0xFE9F) {
+                graphics.OAM[address - 0xFE00] = data;
             } else {
                 mem.ld(data, address);
+            }
+        }
+        uint8_t rd(uint16_t address) {
+            
+            if (address >= 0x8000 && address <= 0x9FFF) {
+                return graphics.VRAM[address - 0x8000];
+            } else if (address >= 0xFE00 && address <= 0xFE9F) {
+                return graphics.OAM[address - 0xFE00];
+            } else {
+                return mem.rd(address);
             }
         }
         void execute();
@@ -44,6 +59,11 @@ class cpu {
         uint8_t get_H() const { return (HL >> 8) & 0xFF; }
         uint8_t get_L() const { return HL & 0xFF; }
 
+        bool get_ZF() { return (AF & zf) != 0; }
+        bool get_NF() { return (AF & nf) != 0; }
+        bool get_HF() { return (AF & hf) != 0; }
+        bool get_CF() { return (AF & cf) != 0; }
+
         void set_A(uint8_t value) { AF = (value << 8) | (AF & 0xFF); }
         void set_F(uint8_t value) { AF = (AF & 0xFF00) | value; }
         void set_B(uint8_t value) { BC = (value << 8) | (BC & 0xFF); }
@@ -52,6 +72,38 @@ class cpu {
         void set_E(uint8_t value) { DE = (DE & 0xFF00) | value; }
         void set_H(uint8_t value) { HL = (value << 8) | (HL & 0xFF); }
         void set_L(uint8_t value) { HL = (HL & 0xFF00) | value; }
+
+        void set_ZF(bool set) { 
+            if (set) {
+                AF |= zf;
+            } else {
+                AF &= ~zf;
+            }
+        }
+
+        void set_NF(bool set) { 
+            if (set) {
+                AF |= nf; 
+            } else {
+                AF &= ~nf;
+            }
+        }
+
+        void set_HF(bool set) { 
+            if (set) {
+                AF |= hf; 
+            } else {
+                AF &= ~hf;
+            }
+        }
+
+        void set_CF(bool set) { 
+            if (set) {
+                AF |= cf; 
+            } else {
+                AF &= ~cf; 
+            }
+        }
 
         void inc_SP() { SP++; }
         void dec_SP() { SP--; }
@@ -64,20 +116,26 @@ class cpu {
 
         //arithmetic
         uint8_t XOR(uint8_t a, uint8_t b);
+        uint8_t INC(uint8_t byte);
+        uint8_t DEC(uint8_t byte);
+        void ADD(uint8_t byte);
+        void SUB(uint8_t byte);
+
 
         //CB opcodes
         void PREFIXED(uint8_t opcode);
         void BIT(int bit, uint8_t reg);
 
         void PUSH(uint16_t addr);
-        void POP(uint16_t reg);
+        void POP(uint16_t& reg);
 
-        void RL(uint8_t byte);
-        void RLC(uint8_t byte);
+        uint8_t RL(uint8_t byte);
+        uint8_t RLC(uint8_t byte);
 
-        void RR(uint8_t byte);
-        void RLA(uint8_t byte);
+        uint8_t RR(uint8_t byte);
+        uint8_t RLA(uint8_t byte);
 
+        void CP(uint8_t a, uint8_t b);
 };
 
 /*

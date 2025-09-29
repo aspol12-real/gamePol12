@@ -22,6 +22,9 @@ class mmu {
         uint8_t WRAM_2[4096];  
         uint8_t HRAM[126]; 
 
+        //io registers
+        uint8_t IO[128];
+
         //methods
         void setBootRom(uint8_t* rom, size_t size);
         void ld(uint8_t data, uint16_t address);
