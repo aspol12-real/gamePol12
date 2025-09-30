@@ -11,6 +11,8 @@ class cpu {
         mmu mem;
         ppu graphics;
 
+        cpu() : mem(), graphics(&mem) {}
+        
         bool startup = false;
 
         const uint8_t zf   = 0b10000000; //Zero Flag
@@ -19,6 +21,8 @@ class cpu {
         const uint8_t cf   = 0b00010000; //Carry Flag
 
         uint8_t opcode = 0;
+
+        int cycles = 0;
 
         //registers
         uint16_t AF = 0x01B0;
@@ -48,7 +52,7 @@ class cpu {
                 return mem.rd(address);
             }
         }
-        void execute();
+        int execute();
 
         uint8_t get_A() const { return (AF >> 8) & 0xFF; }
         uint8_t get_F() const { return AF & 0xFF; }
@@ -115,10 +119,13 @@ class cpu {
         void dec_HL() { HL--; }
 
         //arithmetic
+        uint8_t AND(uint8_t a, uint8_t b);
+        uint8_t OR(uint8_t a, uint8_t b);
         uint8_t XOR(uint8_t a, uint8_t b);
         uint8_t INC(uint8_t byte);
         uint8_t DEC(uint8_t byte);
-        void ADD(uint8_t byte);
+        void ADD8(uint8_t byte);
+        uint32_t ADD16(uint16_t a, uint16_t b);
         void SUB(uint8_t byte);
 
 

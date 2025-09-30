@@ -20,7 +20,7 @@ class mmu {
         //WRAM 1 & 2
         uint8_t WRAM_1[4096];
         uint8_t WRAM_2[4096];  
-        uint8_t HRAM[126]; 
+        uint8_t HRAM[127]; 
 
         //io registers
         uint8_t IO[128];

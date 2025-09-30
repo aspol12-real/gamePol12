@@ -12,10 +12,10 @@ void mmu::ld(uint8_t data, uint16_t address) {
         return; //bootrom is read only
     }
     else if (address >= 0 && address <= 0x3FFF) { //romBank 0
-        cart.romBank0[address] = data;
+        return; //never write
     }
     else if (address >= 0x4000 && address <= 0x7FFF) { //romBank 1-NN (depending on mapper)
-        cart.romBank1[address % 0x4000] = data;
+        return; //never write
     }
     else if (address >= 0xA000 && address <= 0xBFFF) { //External Cartridge Ram
         cart.ERAM[address % 0x2000] = data;
@@ -27,14 +27,14 @@ void mmu::ld(uint8_t data, uint16_t address) {
         WRAM_2[address % 0x1000] = data;
     } 
     else if (address >= 0xFF00 && address <= 0xFF7F) { //I/O registers
-        IO[address % 0x80] = data;
+        IO[address - 0xFF00] = data;
     }
     else if (address >= 0xFF80 && address <= 0xFFFE) { //HRAM
-        HRAM[address % 0xFF] = data;
+        HRAM[address - 0xFF80] = data;
     }
     else {
         std::cout << "BAD POKE . ADDRESS: " << std::hex << +address << "\n";
-        exit( 1 );
+        return;
     }
 }
 
@@ -61,10 +61,10 @@ uint8_t  mmu::rd(uint16_t address) {
         dataRet = WRAM_1[address % 0x1000];  
     }
     else if (address >= 0xFF00 && address <= 0xFF7F) { //I/O registers
-        dataRet = IO[address % 0x80];
+        dataRet = IO[address - 0xFF00];
     }
     else if (address >= 0xFF80 && address <= 0xFFFE) { //HRAM
-        dataRet = HRAM[address % 0xFF];
+        dataRet = HRAM[address - 0xFF80];
     }
     return dataRet;
 }
