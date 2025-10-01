@@ -21,7 +21,7 @@ class mmu {
         uint8_t WRAM_1[4096];
         uint8_t WRAM_2[4096];  
         uint8_t HRAM[127]; 
-
+        bool bootRomEnabled = true;
         //io registers
         uint8_t IO[128];
 

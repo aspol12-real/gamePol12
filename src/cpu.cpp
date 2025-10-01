@@ -9,9 +9,6 @@ void cpu::initialize(std::string rom) {
     
     PC = 0x0;
     SP = 0xFFFE;
-
-    mem.startup = true;
-
     std::ifstream file;
     file.open(rom, std::ios::in | std::ios::binary);
 
@@ -19,7 +16,7 @@ void cpu::initialize(std::string rom) {
         std::cout << "Could not locate source file: " << rom <<  "\n";
         exit( 1 );
     } else {
-        std::cout << "Loading rom file: " << rom << "\n";
+        std::cout << "\n\nLoading rom file: " << rom << "\n";
     }
 
     file.seekg(0, std::ios::end);
@@ -46,6 +43,8 @@ void cpu::initialize(std::string rom) {
 
     file.close();
 
+    ld(0, 0xFF40);
+
 }
 
 int cpu::execute() {
@@ -57,12 +56,14 @@ int cpu::execute() {
     uint8_t  n8  =  rd(PC + 1);
     uint16_t a8 = 0xFF00 + n8;
 
-    std::cout << "opcode = " << std::hex << +opcode << "\n";
-    std::cout << "n16 = " << std::hex << +n16 << "\n";
-    std::cout << "n8 = " << std::hex << +n8 << "\n";
-    std::cout << "PC = " << std::hex << +PC << "\n";
-
-
+    if (disable_pending) {
+        IME = false;
+        disable_pending = false;
+    }
+    if (enable_pending) {
+        IME = false;
+        enable_pending = false;
+    }
     //decode
 
     switch(opcode) {
@@ -74,7 +75,7 @@ int cpu::execute() {
         case 0x04: set_B(INC(get_B())); PC++; cycles = 4; break; //INC B
         case 0x05: set_B(DEC(get_B())); PC++; cycles = 4; break; //DEC B
         case 0x06: set_B(n8); PC += 2; cycles = 8; break;
-        case 0x07: set_A(RLC(get_A())); PC++; cycles = 4; break;
+        case 0x07: set_A(RLC(get_A())); set_ZF(false); PC++; cycles = 4; break;
         case 0x08: ld(SP, n16); PC += 3; cycles = 20; break;
         case 0x09: HL = ADD16(HL , BC); PC++; cycles = 8; break;
         case 0x0A: set_A(rd(BC)); PC++; cycles = 8; break;
@@ -82,7 +83,7 @@ int cpu::execute() {
         case 0x0C: set_C(INC(get_C())); PC++; cycles = 4; break;
         case 0x0D: set_C(DEC(get_C())); PC++; cycles = 4; break;
         case 0x0E: set_C(n8); PC += 2; cycles = 8; break;
-        //missing 0x0F RRCA
+        case 0x0F: set_A(RRC(get_A())); set_ZF(false); PC++; cycles = 4; break;
 
 
         //missing 0x10 STOP
@@ -92,7 +93,7 @@ int cpu::execute() {
         case 0x14: set_D(INC(get_D())); PC++; cycles = 4; break;
         case 0x15: set_D(DEC(get_D())); PC++; cycles = 4; break;
         case 0x16: set_D(n8); PC += 2; cycles = 8; break;
-        case 0x17: set_A(RL(get_A())); PC++; cycles = 4; break;
+        case 0x17: set_A(RL(get_A())); set_ZF(false); PC++; cycles = 4; break;
         case 0x18: PC += 2 + static_cast<int8_t>(n8); cycles = 12; break;
         case 0x19: HL = ADD16(HL, DE); PC++; cycles = 8; break;
         case 0x1A: set_A(rd(DE)); PC++; cycles = 8; break;
@@ -100,7 +101,7 @@ int cpu::execute() {
         case 0x1C: set_E(INC(get_E())); PC++; cycles = 4; break;
         case 0x1D: set_E(DEC(get_E())); PC++; cycles = 4; break;
         case 0x1E: set_E(n8); PC += 2; cycles = 8; break;
-        //missing 0x1F RRA
+        case 0x1F: set_A(RR(get_A())); set_ZF(false); PC++; cycles = 4; break;
 
 
         case 0x20: if((get_ZF()) == 0){PC += 2 + static_cast<int8_t>(n8); cycles = 12;} else { PC += 2; cycles = 8;}; break;
@@ -277,8 +278,12 @@ int cpu::execute() {
 
         case 0xC1: POP(BC); PC++; cycles = 12; break;
 
-        case 0xC5: PUSH(BC); PC++; cycles = 16; break;
+        case 0xC3: PC = n16; cycles = 16; break;
 
+        case 0xC5: PUSH(BC); PC++; cycles = 16; break;
+        case 0xC6: ADD8(n8); PC += 2; cycles = 8; break;
+
+        case 0xC8: if(get_ZF()) {POP(PC); cycles = 20;} else {cycles = 8;}; break;
         case 0xC9: POP(PC); cycles = 16; break; //return from subroutine
 
         case 0xCB: PREFIXED(opcode); PC += 2; break;
@@ -288,20 +293,26 @@ int cpu::execute() {
         case 0xD1: POP(DE); PC++; cycles = 12; break;
 
         case 0xD5: PUSH(DE); PC++; cycles = 16; break;
+        case 0xD6: SUB(n8); PC += 2; cycles = 8; break;
 
         case 0xE0: ld(get_A(), a8); PC += 2; cycles = 12; break;
         case 0xE1: POP(HL); PC++; cycles = 12; break;
         case 0xE2: ld(get_A(), 0xFF00 + get_C()); PC++; cycles = 8; break;
-
+        //ILLEGAL OPCODES 0xE3-0xE4
         case 0xE5: PUSH(HL); PC++; cycles = 16; break;
+        case 0xE6: set_A(AND(get_A(), n8)); PC += 2; cycles = 8; break;
 
         case 0xEA: ld(get_A(), n16); PC += 3; cycles = 16; break;
 
         case 0xF0: set_A(rd(a8)); PC += 2; cycles = 12; break;
 
         case 0xF2: set_A(rd(get_C())); PC++; cycles = 8; break;
+        case 0xF3: disable_pending = true; PC++; cycles = 4; break;
+
+        case 0xF6: set_A(OR(get_A(), n8)); PC += 2; cycles = 8; break;
 
         case 0xFA: set_A(rd(n16)); PC += 3; cycles = 16; break;
+        case 0xFB: enable_pending = true; PC++; cycles = 4; break;
 
         case 0xFE: CP(get_A(), n8); PC += 2; cycles = 8; break;
 
@@ -309,9 +320,11 @@ int cpu::execute() {
             std::cout << "UNKNOWN OPCODE: " << std::hex << +opcode << "\n";
     }
 
-    //execute ppu N cycles per cpu cycle
-    for (int i = 0; i < cycles; i++) {
-        graphics.tick();
+    //execute ppu for N cycles per cpu cycle only if LCD is on!
+    if (rd(0xFF40) & 0x80) {
+        for (int i = 0; i < cycles; i++) {
+            graphics.tick();
+        }
     }
 
     return cycles;
@@ -319,8 +332,8 @@ int cpu::execute() {
 
 void cpu::PREFIXED(uint8_t opcode) {
     switch (rd(PC + 1)) {
-        case 0x11: set_C(RL(get_C())); break;
-        case 0x7C: BIT(7, get_H()); break;
+        case 0x11: set_C(RL(get_C())); cycles = 12; break;
+        case 0x7C: BIT(7, get_H()); cycles = 12; break;
     }
 }
 
@@ -396,10 +409,36 @@ uint8_t cpu::RL(uint8_t byte) {
     return resultByte;
 }
 
+uint8_t cpu::RR(uint8_t byte) {
+    uint8_t carryBit = (get_F() & cf) << 3;
+    uint8_t carryFlag = (byte << 4) & cf;
+    uint8_t resultByte = (byte >> 1) | carryBit;
+    
+    set_ZF(resultByte == 0);
+    set_NF(false);
+    set_HF(false);
+    set_CF(carryFlag != 0);
+    
+    return resultByte;
+}
+
 uint8_t cpu::RLC(uint8_t byte) {
     uint8_t carryBit = byte >> 7;
     uint8_t carryFlag = (byte >> 3) & cf;
     uint8_t resultByte = (byte << 1) | carryBit;
+    
+    set_ZF(resultByte == 0);
+    set_NF(false);
+    set_HF(false);
+    set_CF(carryFlag != 0);
+    
+    return resultByte;
+}
+
+uint8_t cpu::RRC(uint8_t byte) {
+    uint8_t carryBit = byte << 7;
+    uint8_t carryFlag = (byte << 4) & cf;
+    uint8_t resultByte = (byte >> 1) | carryBit;
     
     set_ZF(resultByte == 0);
     set_NF(false);

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iostream>
 #include <string>
 #include <cstdint>
 #include "mmu.hpp"
@@ -14,10 +15,13 @@ class cpu {
         cpu() : mem(), graphics(&mem) {}
         
         bool startup = false;
+        bool IME = true;
+        bool enable_pending = false;
+        bool disable_pending = false;
 
         const uint8_t zf   = 0b10000000; //Zero Flag
-        const uint8_t nf = 0b01000000; //Subtraction Flag
-        const uint8_t hf  = 0b00100000; //Half-Carry Flag
+        const uint8_t nf   = 0b01000000; //Subtraction Flag
+        const uint8_t hf   = 0b00100000; //Half-Carry Flag
         const uint8_t cf   = 0b00010000; //Carry Flag
 
         uint8_t opcode = 0;
@@ -35,9 +39,22 @@ class cpu {
         void initialize(std::string rom);
         void ld(uint8_t data, uint16_t address) {
             if (address >= 0x8000 && address <= 0x9FFF) {
-                graphics.VRAM[address - 0x8000] = data;
+                if (graphics.vramRestrict) {
+                    std::cout << "VRAM IS LOCKED UP! Attempted from PC: " << std::hex << PC 
+              << " HL: " << HL << " (Accessed addr: " << address << ")\n";
+                    return;
+                } else {
+                    graphics.VRAM[address - 0x8000] = data;
+                    return; 
+                }
             } else if (address >= 0xFE00 && address <= 0xFE9F) {
-                graphics.OAM[address - 0xFE00] = data;
+                if (graphics.oamRestrict) {
+                    std::cout << "OAM IS LOCKED UP! \n";
+                    return;
+                } else {
+                    graphics.OAM[address - 0xFE00] = data;
+                    return;
+                }
             } else {
                 mem.ld(data, address);
             }
@@ -45,9 +62,20 @@ class cpu {
         uint8_t rd(uint16_t address) {
             
             if (address >= 0x8000 && address <= 0x9FFF) {
-                return graphics.VRAM[address - 0x8000];
+                if (graphics.vramRestrict) {
+                    std::cout << "VRAM IS LOCKED UP! Attempted from PC: " << std::hex << PC 
+              << " HL: " << HL << " (Accessed addr: " << address << ")\n";
+                    return 0;
+                } else {
+                    return graphics.VRAM[address - 0x8000];
+                }
             } else if (address >= 0xFE00 && address <= 0xFE9F) {
-                return graphics.OAM[address - 0xFE00];
+                if (graphics.oamRestrict) {
+                    std::cout << "OAM IS LOCKED UP! \n";
+                    return 0;
+                } else {
+                    return graphics.OAM[address - 0xFE00];
+                }
             } else {
                 return mem.rd(address);
             }
@@ -140,7 +168,7 @@ class cpu {
         uint8_t RLC(uint8_t byte);
 
         uint8_t RR(uint8_t byte);
-        uint8_t RLA(uint8_t byte);
+        uint8_t RRC(uint8_t byte);
 
         void CP(uint8_t a, uint8_t b);
 };

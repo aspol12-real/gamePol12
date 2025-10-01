@@ -1,42 +1,141 @@
 #include "ppu.hpp"
 #include "mmu.hpp"
+#include <iostream>
 
 void ppu::tick() {
 
-    clocks++;
+    clocks++; //increment clocks ONCE per tick
 
-    if (clocks >= 456) {
+    if (LY < 144) {
+        if (clocks == 1) {  //OAM SEARCH (ONLY OAM CANNOT BE ACCESSED)
+            set_ppu_mode(oamsearch);
+
+            spritesFound = 0;
+            for (int i = 0; i < 40; i++) {
+
+                uint8_t sprite_Y = OAM[i * 4];
+                uint8_t sprite_X = OAM[i * 4 + 1];
+                uint8_t tile_number = OAM[i * 4 + 2];
+                uint8_t sprite_flags = OAM[i * 4 + 3];
+
+                const int SPRITE_HEIGHT = 8;
+                if (((sprite_X + 8) > 0) && ((LY + 16) >= sprite_Y) && ((LY + 16) < (sprite_Y + SPRITE_HEIGHT))) {
+                    spritesFound++;
+                    if (spritesFound <= FINDABLE_SPRITES) {
+                        addSprite(spritesFound - 1, sprite_Y, sprite_X, tile_number, sprite_flags);
+                    } else {
+                        return;
+                    }
+                }
+            }
+
+            vramRestrict = false;
+            oamRestrict = true;
+        }
+        else if (clocks == 80) { //Pixel Transfer (VRAM & OAM CANNOT BE ACCESSED)
+            set_ppu_mode(pixeltransfer);
+            oamRestrict = true;
+            vramRestrict = true;
+
+        }
+        else if (clocks >= 80 && clocks < 252) {
+            if (get_ppu_mode() == pixeltransfer && x < 160) {
+                renderPixel();
+            }
+        }
+        else if (clocks == 252) { //H-Blank (VRAM AND OAM CAN BE ACCESSED)
+            set_ppu_mode(h_blank);
+            oamRestrict = false;
+            vramRestrict = false;
+        }
+    }
+    if (clocks >= 456) { // NEW SCAN LINE
+
         clocks = 0;
+        x = 0;
         LY++;
 
-        if (LY == 144) {
-             //v-blank interrupt
+        if (LY == 144) { //ENTER VBLANK SCANLINE PERIOD
+            oamRestrict = false;
+            vramRestrict = false;
+            set_ppu_mode(v_blank);
         }
-        if (LY > 153) {
+        if (LY > 153) { //ENTER OAM SEARCH AFTER LAST VBLANK LINE
+
             LY = 0;
-        }
-        mem->ld(LY, 0xFF44);
+
+        } 
+
+        mem->ld(LY, 0xFF44); //updates LY register
     }
-    switch (ppuState) {
-        case OAMSearch:
-            //collect sprite data
+}
 
-            break;
-
-        case PixelTransfer:
-            //push pixel data to display
-
-            break;
+void ppu::renderPixel() {
+    if (x % 8 == 0) {
+        // Fetch new tile every 8 pixels
+        uint8_t SCY = mem->rd(0xFF42);
+        uint8_t SCX = mem->rd(0xFF43);
         
-        case HBlank:
-
-            //wait, the either oamsearch or vblank
-            
-            break;
-
-        case VBlank:
-
-            //wait then go back to sprite search for top of line
-            break;
+        uint16_t bg_map_addr = 0x9800; // Default BG map
+        if (mem->rd(0xFF40) & 0x08) bg_map_addr = 0x9C00; // Alternate map
+        
+        uint8_t tile_y = (LY + SCY) & 0xFF;
+        uint8_t tile_x = (x + SCX) & 0xFF;
+        
+        uint16_t tile_map_addr = bg_map_addr + ((tile_y / 8) * 32) + (tile_x / 8);
+        uint8_t tile_num = VRAM[tile_map_addr - 0x8000];
+        
+        // Get tile data
+        uint16_t tile_data_addr = 0x8000 + (tile_num * 16) + ((tile_y % 8) * 2);
+        uint8_t low_byte = VRAM[tile_data_addr - 0x8000];
+        uint8_t high_byte = VRAM[(tile_data_addr + 1) - 0x8000];
+        
+        // Push to FIFO
+        pixel_fifo.clear();
+        for (int i = 0; i < 8; i++) {
+            int bit_idx = 7 - i;
+            uint8_t color = ((high_byte >> bit_idx) & 1) << 1 | 
+                           ((low_byte >> bit_idx) & 1);
+            pixel_fifo.push_back(color);
+        }
     }
+    
+    if (!pixel_fifo.empty()) {
+        uint8_t color_idx = pixel_fifo.front();
+        pixel_fifo.pop_front();
+        
+        uint8_t final_color = get_color(color_idx, 0xFF47);
+        screenBuffer[LY * 160 + x] = final_color;
+        x++;
+    }
+}
+void ppu::set_ppu_mode(uint8_t mode) {
+
+    temp = mem->rd(0xFF41);
+    temp &= 0b11111100;
+    temp |= mode;
+    mem->ld(temp, 0xFF41); 
+
+}
+
+uint8_t ppu::get_color(uint8_t color_index, uint16_t palette_address) {
+
+    uint8_t palette_data = mem->rd(palette_address);
+    uint8_t shift = color_index * 2;
+    uint8_t final_palette_index = (palette_data >> shift) & 0b11; 
+    
+    return final_palette_index;
+}
+
+void ppu::addSprite(int i, uint8_t a, uint8_t b, uint8_t c, uint8_t d) {
+    
+    spritebuffer[i * 4] = a;
+    spritebuffer[i * 4 + 1] = b;
+    spritebuffer[i * 4 + 2] = c;
+    spritebuffer[i * 4 + 3] = d;
+
+}
+
+uint8_t ppu::get_ppu_mode() {
+    return mem->rd(0xFF41) & 0x03;
 }
