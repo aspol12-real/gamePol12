@@ -50,12 +50,15 @@ class cpu {
             } else if (address >= 0xFE00 && address <= 0xFE9F) {
                 if (graphics.oamRestrict) {
                     std::cout << "OAM IS LOCKED UP! \n";
-                    return;
+                    return; 
                 } else {
                     graphics.OAM[address - 0xFE00] = data;
                     return;
                 }
-            } else {
+            } else if (address >= 0xFEA0 && address <= 0xFEFF) {
+                std::cout << "NOT USABLE. PC = " << std::hex << +PC << " OPCODE = " << +opcode << " HL = " << +HL << "\n"; 
+            } 
+            else {
                 mem.ld(data, address);
             }
         }
@@ -161,6 +164,7 @@ class cpu {
         void PREFIXED(uint8_t opcode);
         void BIT(int bit, uint8_t reg);
 
+        void PUSH_AF(uint16_t addr);
         void PUSH(uint16_t addr);
         void POP(uint16_t& reg);
 

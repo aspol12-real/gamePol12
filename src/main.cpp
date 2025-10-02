@@ -17,6 +17,12 @@ const int screenWidth  = GB_WIDTH * CELLSIZE;
 const int screenHeight = GB_HEIGHT * CELLSIZE;
 const int TARGET_CYCLES_PER_FRAME = 69905; 
 
+uint8_t buttons_pressed = 0;
+uint8_t dpad_state;
+uint8_t buttons_state;
+
+bool dpad_enable = false;
+bool buttons_enable = false;
 bool run = false;
 bool debug = true;
 
@@ -54,9 +60,62 @@ int main(int argc, char *argv[]){
     gb.initialize(playerRom);
     //main runtime
 
-
     while (!WindowShouldClose()) {
 
+        buttons_pressed = 0;
+
+        //get gameboy keypad input
+        if (IsKeyDown(KEY_UP)) {
+            buttons_enable = false;
+            dpad_enable = true;
+            buttons_pressed |= 0b0100;
+        }
+        if (IsKeyDown(KEY_DOWN)) {
+            buttons_enable = false;
+            dpad_enable = true;
+            buttons_pressed |= 0b1000;
+        }
+        if (IsKeyDown(KEY_LEFT)) {
+            buttons_enable = false;
+            dpad_enable = true;
+            buttons_pressed |= 0b0010;
+        }
+        if (IsKeyDown(KEY_RIGHT)) {
+            buttons_enable = false;
+            dpad_enable = true;
+            buttons_pressed |= 0b0001;
+        }
+
+        if (IsKeyDown(KEY_RIGHT_SHIFT)) {
+            buttons_enable = true;
+            dpad_enable = false;
+            buttons_pressed |= 0b0100;
+        }
+        if (IsKeyDown(KEY_ENTER)) {
+            buttons_enable = true;
+            dpad_enable = false;
+            buttons_pressed |= 0b1000;
+        }
+        if (IsKeyDown(KEY_Z)) {
+            buttons_enable = true;
+            dpad_enable = false;
+            buttons_pressed |= 0b0010;
+        }
+        if (IsKeyDown(KEY_X)) {
+            buttons_enable = true;
+            dpad_enable = false;
+            buttons_pressed |= 0b0001;
+        }
+
+        if(buttons_enable) {
+            buttons_pressed |= 0b100000; 
+        } else if (dpad_enable) {
+            buttons_pressed |= 0b010000;   
+        } else {
+            buttons_pressed = 0;
+        }
+
+        gb.ld(buttons_pressed, 0xFF00);
 
         if(run) {
             if (IsKeyPressed(KEY_W)) {
@@ -78,7 +137,9 @@ int main(int argc, char *argv[]){
                 gb.execute();  
             }
             if (IsKeyDown(KEY_D)) {
-                gb.execute();  
+                for (int i = 0; i < 100; i++) {
+                    gb.execute();  
+                }
             }
             if (IsKeyPressed(KEY_P)) {
                 std::cout << "\n\n\n\n";
@@ -121,6 +182,7 @@ int main(int argc, char *argv[]){
             DrawText(TextFormat("WY: %04x", gb.rd(0xFF4A)), 0, 450, 20, RED);
             DrawText(TextFormat("WX: %04x", gb.rd(0xFF4B)), 0, 480, 20, RED);
             DrawText(TextFormat("PALLETTE: %04x", gb.rd(0xFF47)), 0, 510, 20, RED);
+            DrawText(TextFormat("BUTTON: %04x", gb.rd(0xFF00)), 0, 540, 20, RED);
             
         }
 

@@ -112,7 +112,7 @@ int cpu::execute() {
         case 0x25: set_H(DEC(get_H())); PC++; cycles = 4; break;
         case 0x26: set_H(n8); PC += 2; cycles = 8; break;
         //missing 0x27 DAA
-        case 0x28: if((get_ZF()) == 1){PC += 2 + static_cast<int8_t>(n8); cycles = 12;} else { PC += 2; cycles = 8;}; break;
+        case 0x28: if((get_ZF()) == 1){PC += 2 + static_cast<int8_t>(n8); cycles = 12;} else { PC += 2; cycles = 8; cycles = 12;}; break;
         case 0x29: HL = ADD16(HL, HL); PC++; cycles = 8; break;
         case 0x2A: set_A(rd(HL)); inc_HL(); PC++; cycles = 8; break;
         case 0x2B: dec_HL(); PC++; cycles = 8; break;
@@ -290,10 +290,14 @@ int cpu::execute() {
 
         case 0xCD: PUSH(PC + 3); PC = n16; cycles = 24; break;  
 
+
+
         case 0xD1: POP(DE); PC++; cycles = 12; break;
 
         case 0xD5: PUSH(DE); PC++; cycles = 16; break;
         case 0xD6: SUB(n8); PC += 2; cycles = 8; break;
+
+
 
         case 0xE0: ld(get_A(), a8); PC += 2; cycles = 12; break;
         case 0xE1: POP(HL); PC++; cycles = 12; break;
@@ -301,14 +305,20 @@ int cpu::execute() {
         //ILLEGAL OPCODES 0xE3-0xE4
         case 0xE5: PUSH(HL); PC++; cycles = 16; break;
         case 0xE6: set_A(AND(get_A(), n8)); PC += 2; cycles = 8; break;
+        case 0xE9: PC = HL; cycles = 4; break;
+
 
         case 0xEA: ld(get_A(), n16); PC += 3; cycles = 16; break;
+
+        case 0xEF: PC = 0x28; cycles = 16; break; // RST $28
+
 
         case 0xF0: set_A(rd(a8)); PC += 2; cycles = 12; break;
 
         case 0xF2: set_A(rd(get_C())); PC++; cycles = 8; break;
         case 0xF3: disable_pending = true; PC++; cycles = 4; break;
 
+        case 0xF5: 
         case 0xF6: set_A(OR(get_A(), n8)); PC += 2; cycles = 8; break;
 
         case 0xFA: set_A(rd(n16)); PC += 3; cycles = 16; break;
@@ -319,6 +329,7 @@ int cpu::execute() {
         default:
             std::cout << "UNKNOWN OPCODE: " << std::hex << +opcode << "\n";
     }
+
 
     //execute ppu for N cycles per cpu cycle only if LCD is on!
     if (rd(0xFF40) & 0x80) {
@@ -384,6 +395,13 @@ void cpu::PUSH(uint16_t addr) {
     SP -= 2;
     ld(addr & 0xFF, SP);     
     ld(addr >> 8, SP + 1);
+}
+
+void cpu::PUSH_AF(uint16_t addr) {
+    SP--;
+    ld(get_A(), SP);
+    SP--;
+    ld((get_ZF() << 7) | (get_NF() << 6) | (get_HF() << 5) | (get_CF() << 4), SP);
 }
 
 void cpu::POP(uint16_t& reg) {
@@ -476,9 +494,9 @@ void cpu::CP(uint8_t a, uint8_t b) {
 
 void cpu::ADD8(uint8_t byte) {
     uint8_t result = get_A() + byte;
-    set_A(get_A() + byte);
+    set_A(result);
 
-    set_ZF((get_A() + byte) == 0);
+    set_ZF(result == 0);
     set_NF(false);
     set_HF(((get_A() & 0x0F) + (byte & 0x0F)) > 0x0F);  // Half-carry
     set_CF(result > 0xFF);    
@@ -487,6 +505,7 @@ void cpu::ADD8(uint8_t byte) {
 uint32_t cpu::ADD16(uint16_t a, uint16_t b) {
     uint32_t result = a + b;
 
+    //ZERO FLAG IGNORED
     set_NF(false);
     set_HF(((a & 0x0FFF) + (b & 0x0FFF)) > 0x0FFF);
     set_CF(result > 0xFFFF); 
@@ -495,9 +514,10 @@ uint32_t cpu::ADD16(uint16_t a, uint16_t b) {
 }
 
 void cpu::SUB(uint8_t byte) {
-    set_A(get_A() - byte);
+    uint8_t result = get_A() - byte;
+    set_A(result);
 
-    set_ZF((get_A() - byte) == 0);
+    set_ZF(result == 0);
     set_NF(true);
     set_HF((get_A() & 0x0F) < (byte & 0x0F));
     set_CF(byte > get_A());

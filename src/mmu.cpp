@@ -37,6 +37,9 @@ void mmu::ld(uint8_t data, uint16_t address) {
     else if (address >= 0xFF80 && address <= 0xFFFE) { //HRAM
         HRAM[address - 0xFF80] = data;
     }
+    else if (address == 0xFFFF) {
+        std::cout << "INTERRUPT REGISTER POKED! \n";
+    }
     else {
         std::cout << "BAD POKE . ADDRESS: " << std::hex << +address << "\n";
         exit( 1 );
