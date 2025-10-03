@@ -36,27 +36,31 @@ void cpu::initialize(std::string rom) {
             mem.cart.romBank0[address] = byte;
         }
         else if (address >= 0x4000 && address <= 0x7FFF) { //romBank 1-NN (depending on mapper)
-            mem.cart.romBank1[address % 0x4000] = byte;
+            mem.cart.romBank1[address - 0x4000] = byte;
         }
         address++;
     }
 
     file.close();
 
-    ld(0, 0xFF40);
+    ld(0x0, 0xFF40);
 
     ld(0b10000000, 0xFF02); //SERIAL PORT DISABLED
 
 }
 
 int cpu::execute() {
+
+    if (PC > 0xFF) {
+        mem.bootRomEnabled = false;
+    }
     //get current opcode
     opcode = rd(PC);
-
 
     uint16_t n16 = (rd(PC + 2) << 8) | rd(PC + 1);
     uint8_t  n8  =  rd(PC + 1);
     uint16_t a8 = 0xFF00 + n8;
+    int8_t  e8 = static_cast<int8_t>(n8);
 
     if (disable_pending) {
         IME = false;
@@ -96,7 +100,7 @@ int cpu::execute() {
         case 0x15: set_D(DEC(get_D())); PC++; cycles = 4; break;
         case 0x16: set_D(n8); PC += 2; cycles = 8; break;
         case 0x17: set_A(RL(get_A())); set_ZF(false); PC++; cycles = 4; break;
-        case 0x18: PC += 2 + static_cast<int8_t>(n8); cycles = 12; break;
+        case 0x18: PC += 2 + e8; cycles = 12; break;
         case 0x19: HL = ADD16(HL, DE); PC++; cycles = 8; break;
         case 0x1A: set_A(rd(DE)); PC++; cycles = 8; break;
         case 0x1B: dec_DE(); PC++; cycles = 8; break;
@@ -106,7 +110,7 @@ int cpu::execute() {
         case 0x1F: set_A(RR(get_A())); set_ZF(false); PC++; cycles = 4; break;
 
 
-        case 0x20: if((get_ZF()) == 0){PC += 2 + static_cast<int8_t>(n8); cycles = 12;} else { PC += 2; cycles = 8;}; break;
+        case 0x20: if((get_ZF()) == 0){PC += 2 + e8; cycles = 12;} else { PC += 2; cycles = 8;}; break;
         case 0x21: HL = n16; PC += 3; cycles = 12; break;
         case 0x22: ld(get_A(), HL); inc_HL(); PC++; cycles = 8; break;
         case 0x23: inc_HL(); PC++; cycles = 8; break;
@@ -114,7 +118,7 @@ int cpu::execute() {
         case 0x25: set_H(DEC(get_H())); PC++; cycles = 4; break;
         case 0x26: set_H(n8); PC += 2; cycles = 8; break;
         //missing 0x27 DAA
-        case 0x28: if((get_ZF()) == 1){PC += 2 + static_cast<int8_t>(n8); cycles = 12;} else { PC += 2; cycles = 8; cycles = 12;}; break;
+        case 0x28: if((get_ZF()) == 1){PC += 2 + e8; cycles = 12;} else { PC += 2; cycles = 8;}; break;
         case 0x29: HL = ADD16(HL, HL); PC++; cycles = 8; break;
         case 0x2A: set_A(rd(HL)); inc_HL(); PC++; cycles = 8; break;
         case 0x2B: dec_HL(); PC++; cycles = 8; break;
@@ -124,7 +128,7 @@ int cpu::execute() {
         case 0x2F: set_A(~get_A()); set_NF(true); set_HF(true);  PC++; cycles = 4; break; //CPL
 
 
-        case 0x30: if((get_CF() == 0)) {PC += 2 + static_cast<int8_t>(n8); cycles = 12;} else { PC += 2; cycles = 8;}; break;
+        case 0x30: if((get_CF() == 0)) {PC += 2 + e8; cycles = 12;} else { PC += 2; cycles = 8;}; break;
         case 0x31: SP = n16; PC += 3; cycles = 12; break;
         case 0x32: ld(get_A(), HL); dec_HL(); PC++; cycles = 8; break;
         case 0x33: inc_SP(); PC++; cycles = 8; break;
@@ -132,7 +136,7 @@ int cpu::execute() {
         case 0x35: ld(DEC(rd(HL)), HL); PC++; cycles = 12; break;
         case 0x36: ld(n8, HL); PC += 2; cycles = 12; break;
         case 0x37: set_NF(false); set_HF(false); set_CF(true); PC++; cycles = 4; break; //SCF 
-        case 0x38: if((get_CF() == 1)) {PC += 2 + static_cast<int8_t>(n8); cycles = 12;} else { PC += 2; cycles = 8;}; break;
+        case 0x38: if((get_CF() == 1)) {PC += 2 + e8; cycles = 12;} else { PC += 2; cycles = 8;}; break;
         case 0x39: HL = ADD16(HL, SP); PC++; cycles = 8; break;
         case 0x3A: set_A(rd(HL)); dec_HL(); PC++; cycles = 8; break;
         case 0x3B: dec_SP(); PC++; cycles = 8; break;
@@ -294,7 +298,7 @@ int cpu::execute() {
         case 0xC5: PUSH(BC); PC++; cycles = 16; break;
         case 0xC6: ADD8(n8); PC += 2; cycles = 8; break;
         case 0xC7: PUSH(PC + 1); PC = 0x00; cycles = 16; break; // RST $00
-        case 0xC8: if(get_ZF() == 1) {POP(PC); cycles = 20;} else {cycles = 8;}; break;
+        case 0xC8: if(get_ZF() == 1) {POP(PC); cycles = 20;} else {PC++; cycles = 8;}; break;
         case 0xC9: POP(PC); cycles = 16; break; //return from subroutine
         case 0xCA: if(get_ZF() == 1) {PC = n16; cycles = 16;} else {PC += 3; cycles = 12;}; break;
         case 0xCB: PREFIXED(opcode); PC += 2; break;
@@ -312,12 +316,12 @@ int cpu::execute() {
         case 0xD5: PUSH(DE); PC++; cycles = 16; break;
         case 0xD6: SUB(n8); PC += 2; cycles = 8; break;
         case 0xD7: PUSH(PC + 1); PC = 0x10; cycles = 16; break; // RST $10
-        case 0xD8: if(get_CF() == 1) {POP(PC); cycles = 20;} else {cycles = 8;}; break;
-
+        case 0xD8: if(get_CF() == 1) {POP(PC); cycles = 20;} else {PC++; cycles = 8;}; break;
+        case 0xD9: POP(PC); cycles = 16; break; //RETI, CHANGE TO BE ACCURATE LATER
         case 0xDA: if(get_CF() == 1) {PC = n16; cycles = 16;} else {PC += 3; cycles = 12;}; break;
         //ILLEGAL OPCODE 0xDB
         case 0xDC: if(get_CF() == 1) {PUSH(PC + 3); PC = n16; cycles = 24;} else {PC += 3; cycles = 12;}; break;
-
+        //ILLEGAL OPCODE 0xDE
         case 0xDE: SBC(n8); PC += 2; cycles = 8; break;
         case 0xDF: PUSH(PC + 1); PC = 0x18; cycles = 16; break; // RST $18
 
@@ -330,7 +334,7 @@ int cpu::execute() {
         case 0xE5: PUSH(HL); PC++; cycles = 16; break;
         case 0xE6: set_A(AND(get_A(), n8)); PC += 2; cycles = 8; break;
         case 0xE7: PUSH(PC + 1); PC = 0x20; cycles = 16; break; // RST $20
-
+        case 0xE8: SPADD(n8); PC += 2; cycles = 12; break;
         case 0xE9: PC = HL; cycles = 4; break;
         case 0xEA: ld(get_A(), n16); PC += 3; cycles = 16; break;
         //ILLEGAL OPCODE 0xEB
@@ -349,15 +353,27 @@ int cpu::execute() {
         case 0xF6: set_A(OR(get_A(), n8)); PC += 2; cycles = 8; break;
         case 0xF7: PUSH(PC + 1); PC = 0x30; cycles = 16; break; // RST $30
 
+        case 0xF9: SP = HL; PC++; cycles = 8; break;
         case 0xFA: set_A(rd(n16)); PC += 3; cycles = 16; break;
         case 0xFB: enable_pending = true; PC++; cycles = 4; break;
         //ILLEGAL OPCODE 0xFC
         //ILLEGAL OPCODE 0xFD
         case 0xFE: CP(get_A(), n8); PC += 2; cycles = 8; break;
-        case 0xFF: PUSH(PC + 1); PC = 0x38; cycles = 16; break; // RST $38
+        case 0xFF:
+            PUSH(PC + 1);
+            PC = 0x38;
+            cycles = 16;
+
+            std::cout << "RST $38 hit! PC=" << std::hex << PC 
+              << " SP=" << SP << " A=" << +get_A() 
+              << " F=" << +get_F() << " BC=" << BC 
+              << " DE=" << DE << " HL=" << HL << " OPCODE = " << +opcode << " LCDC = " << +rd(0xFF40) << "\n";
+              exit( 1 );
+            break; // RST $38
 
         default:
             std::cout << "UNKNOWN OPCODE: " << std::hex << +opcode << "\n";
+            PC++;
     }
 
 
@@ -373,8 +389,241 @@ int cpu::execute() {
 
 void cpu::PREFIXED(uint8_t opcode) {
     switch (rd(PC + 1)) {
+
+        case 0x10: set_B(RL(get_B())); cycles = 12; break;
         case 0x11: set_C(RL(get_C())); cycles = 12; break;
+        case 0x12: set_D(RL(get_D())); cycles = 12; break;
+        case 0x13: set_E(RL(get_E())); cycles = 12; break;
+
+        case 0x30: set_B(SWAP(get_B())); cycles = 12; break;
+        case 0x31: set_C(SWAP(get_C())); cycles = 12; break;
+        case 0x32: set_D(SWAP(get_D())); cycles = 12; break;
+        case 0x33: set_E(SWAP(get_E())); cycles = 12; break;
+        case 0x34: set_H(SWAP(get_H())); cycles = 12; break;
+        case 0x35: set_L(SWAP(get_L())); cycles = 12; break;
+        case 0x36: ld(SWAP(rd(HL)), HL); cycles = 16; break;
+        case 0x37: set_A(SWAP(get_A())); cycles = 12; break;
+
+
+        case 0x40: BIT(0, get_B()); cycles = 12; break;
+        case 0x41: BIT(0, get_C()); cycles = 12; break;
+        case 0x42: BIT(0, get_D()); cycles = 12; break;
+        case 0x43: BIT(0, get_E()); cycles = 12; break;
+        case 0x44: BIT(0, get_H()); cycles = 12; break;
+        case 0x45: BIT(0, get_L()); cycles = 12; break;
+        case 0x46: BIT(0, rd(HL)); cycles = 16; break;
+        case 0x47: BIT(0, get_A()); cycles = 12; break;
+        case 0x48: BIT(1, get_B()); cycles = 12; break;
+        case 0x49: BIT(1, get_C()); cycles = 12; break;
+        case 0x4A: BIT(1, get_D()); cycles = 12; break;
+        case 0x4B: BIT(1, get_E()); cycles = 12; break;
+        case 0x4C: BIT(1, get_H()); cycles = 12; break;
+        case 0x4D: BIT(1, get_L()); cycles = 12; break;
+        case 0x4E: BIT(1, rd(HL)); cycles = 16; break;
+        case 0x4F: BIT(1, get_A()); cycles = 12; break;
+
+
+        case 0x50: BIT(2, get_B()); cycles = 12; break;
+        case 0x51: BIT(2, get_C()); cycles = 12; break;
+        case 0x52: BIT(2, get_D()); cycles = 12; break;
+        case 0x53: BIT(2, get_E()); cycles = 12; break;
+        case 0x54: BIT(2, get_H()); cycles = 12; break;
+        case 0x55: BIT(2, get_L()); cycles = 12; break;
+        case 0x56: BIT(2, rd(HL)); cycles = 16; break;
+        case 0x57: BIT(2, get_A()); cycles = 12; break;
+        case 0x58: BIT(3, get_B()); cycles = 12; break;
+        case 0x59: BIT(3, get_C()); cycles = 12; break;
+        case 0x5A: BIT(3, get_D()); cycles = 12; break;
+        case 0x5B: BIT(3, get_E()); cycles = 12; break;
+        case 0x5C: BIT(3, get_H()); cycles = 12; break;
+        case 0x5D: BIT(3, get_L()); cycles = 12; break;
+        case 0x5E: BIT(3, rd(HL)); cycles = 16; break;
+        case 0x5F: BIT(3, get_A()); cycles = 12; break;
+
+
+        case 0x60: BIT(4, get_B()); cycles = 12; break;
+        case 0x61: BIT(4, get_C()); cycles = 12; break;
+        case 0x62: BIT(4, get_D()); cycles = 12; break;
+        case 0x63: BIT(4, get_E()); cycles = 12; break;
+        case 0x64: BIT(4, get_H()); cycles = 12; break;
+        case 0x65: BIT(4, get_L()); cycles = 12; break;
+        case 0x66: BIT(4, rd(HL)); cycles = 16; break;
+        case 0x67: BIT(4, get_A()); cycles = 12; break;
+        case 0x68: BIT(5, get_B()); cycles = 12; break;
+        case 0x69: BIT(5, get_C()); cycles = 12; break;
+        case 0x6A: BIT(5, get_D()); cycles = 12; break;
+        case 0x6B: BIT(5, get_E()); cycles = 12; break;
+        case 0x6C: BIT(5, get_H()); cycles = 12; break;
+        case 0x6D: BIT(5, get_L()); cycles = 12; break;
+        case 0x6E: BIT(5, rd(HL)); cycles = 16; break;
+        case 0x6F: BIT(5, get_A()); cycles = 12; break;
+
+
+        case 0x70: BIT(6, get_B()); cycles = 12; break;
+        case 0x71: BIT(6, get_C()); cycles = 12; break;
+        case 0x72: BIT(6, get_D()); cycles = 12; break;
+        case 0x73: BIT(6, get_E()); cycles = 12; break;
+        case 0x74: BIT(6, get_H()); cycles = 12; break;
+        case 0x75: BIT(6, get_L()); cycles = 12; break;
+        case 0x76: BIT(6, rd(HL)); cycles = 16; break;
+        case 0x77: BIT(6, get_A()); cycles = 12; break;
+        case 0x78: BIT(7, get_B()); cycles = 12; break;
+        case 0x79: BIT(7, get_C()); cycles = 12; break;
+        case 0x7A: BIT(7, get_D()); cycles = 12; break;
+        case 0x7B: BIT(7, get_E()); cycles = 12; break;
         case 0x7C: BIT(7, get_H()); cycles = 12; break;
+        case 0x7D: BIT(7, get_L()); cycles = 12; break;
+        case 0x7E: BIT(7, rd(HL)); cycles = 16; break;
+        case 0x7F: BIT(7, get_A()); cycles = 12; break;
+
+
+        case 0x80: set_B(RES(0, get_B())); cycles = 12; break;
+        case 0x81: set_C(RES(0, get_C())); cycles = 12; break;
+        case 0x82: set_D(RES(0, get_D())); cycles = 12; break;
+        case 0x83: set_E(RES(0, get_E())); cycles = 12; break;
+        case 0x84: set_H(RES(0, get_H())); cycles = 12; break;
+        case 0x85: set_L(RES(0, get_L())); cycles = 12; break;
+        case 0x86: ld(RES(0, rd(HL)), HL); cycles = 16; break; 
+        case 0x87: set_A(RES(0, get_A())); cycles = 12; break;
+        case 0x88: set_B(RES(1, get_B())); cycles = 12; break;
+        case 0x89: set_C(RES(1, get_C())); cycles = 12; break;
+        case 0x8A: set_D(RES(1, get_D())); cycles = 12; break;
+        case 0x8B: set_E(RES(1, get_E())); cycles = 12; break;
+        case 0x8C: set_H(RES(1, get_H())); cycles = 12; break;
+        case 0x8D: set_L(RES(1, get_L())); cycles = 12; break;
+        case 0x8E: ld(RES(1, rd(HL)), HL); cycles = 16; break; 
+        case 0x8F: set_A(RES(1, get_A())); cycles = 12; break;
+
+
+        case 0x90: set_B(RES(2, get_B())); cycles = 12; break;
+        case 0x91: set_C(RES(2, get_C())); cycles = 12; break;
+        case 0x92: set_D(RES(2, get_D())); cycles = 12; break;
+        case 0x93: set_E(RES(2, get_E())); cycles = 12; break;
+        case 0x94: set_H(RES(2, get_H())); cycles = 12; break;
+        case 0x95: set_L(RES(2, get_L())); cycles = 12; break;
+        case 0x96: ld(RES(2, rd(HL)), HL); cycles = 16; break; 
+        case 0x97: set_A(RES(2, get_A())); cycles = 12; break;
+        case 0x98: set_B(RES(3, get_B())); cycles = 12; break;
+        case 0x99: set_C(RES(3, get_C())); cycles = 12; break;
+        case 0x9A: set_D(RES(3, get_D())); cycles = 12; break;
+        case 0x9B: set_E(RES(3, get_E())); cycles = 12; break;
+        case 0x9C: set_H(RES(3, get_H())); cycles = 12; break;
+        case 0x9D: set_L(RES(3, get_L())); cycles = 12; break;
+        case 0x9E: ld(RES(3, rd(HL)), HL); cycles = 16; break; 
+        case 0x9F: set_A(RES(3, get_A())); cycles = 12; break;
+
+
+        case 0xA0: set_B(RES(4, get_B())); cycles = 12; break;
+        case 0xA1: set_C(RES(4, get_C())); cycles = 12; break;
+        case 0xA2: set_D(RES(4, get_D())); cycles = 12; break;
+        case 0xA3: set_E(RES(4, get_E())); cycles = 12; break;
+        case 0xA4: set_H(RES(4, get_H())); cycles = 12; break;
+        case 0xA5: set_L(RES(4, get_L())); cycles = 12; break;
+        case 0xA6: ld(RES(4, rd(HL)), HL); cycles = 16; break; 
+        case 0xA7: set_A(RES(4, get_A())); cycles = 12; break;
+        case 0xA8: set_B(RES(5, get_B())); cycles = 12; break;
+        case 0xA9: set_C(RES(5, get_C())); cycles = 12; break;
+        case 0xAA: set_D(RES(5, get_D())); cycles = 12; break;
+        case 0xAB: set_E(RES(5, get_E())); cycles = 12; break;
+        case 0xAC: set_H(RES(5, get_H())); cycles = 12; break;
+        case 0xAD: set_L(RES(5, get_L())); cycles = 12; break;
+        case 0xAE: ld(RES(5, rd(HL)), HL); cycles = 16; break; 
+        case 0xAF: set_A(RES(5, get_A())); cycles = 12; break;
+
+
+        case 0xB0: set_B(RES(6, get_B())); cycles = 12; break;
+        case 0xB1: set_C(RES(6, get_C())); cycles = 12; break;
+        case 0xB2: set_D(RES(6, get_D())); cycles = 12; break;
+        case 0xB3: set_E(RES(6, get_E())); cycles = 12; break;
+        case 0xB4: set_H(RES(6, get_H())); cycles = 12; break;
+        case 0xB5: set_L(RES(6, get_L())); cycles = 12; break;
+        case 0xB6: ld(RES(6, rd(HL)), HL); cycles = 16; break; 
+        case 0xB7: set_A(RES(6, get_A())); cycles = 12; break;
+        case 0xB8: set_B(RES(7, get_B())); cycles = 12; break;
+        case 0xB9: set_C(RES(7, get_C())); cycles = 12; break;
+        case 0xBA: set_D(RES(7, get_D())); cycles = 12; break;
+        case 0xBB: set_E(RES(7, get_E())); cycles = 12; break;
+        case 0xBC: set_H(RES(7, get_H())); cycles = 12; break;
+        case 0xBD: set_L(RES(7, get_L())); cycles = 12; break;
+        case 0xBE: ld(RES(7, rd(HL)), HL); cycles = 16; break; 
+        case 0xBF: set_A(RES(7, get_A())); cycles = 12; break;
+
+
+        case 0xC0: set_B(SET(0, get_B())); cycles = 12; break;
+        case 0xC1: set_C(SET(0, get_C())); cycles = 12; break;
+        case 0xC2: set_D(SET(0, get_D())); cycles = 12; break;
+        case 0xC3: set_E(SET(0, get_E())); cycles = 12; break;
+        case 0xC4: set_H(SET(0, get_H())); cycles = 12; break;
+        case 0xC5: set_L(SET(0, get_L())); cycles = 12; break;
+        case 0xC6: ld(SET(0, rd(HL)), HL); cycles = 16; break; 
+        case 0xC7: set_A(SET(0, get_A())); cycles = 12; break;
+        case 0xC8: set_B(SET(1, get_B())); cycles = 12; break;
+        case 0xC9: set_C(SET(1, get_C())); cycles = 12; break;
+        case 0xCA: set_D(SET(1, get_D())); cycles = 12; break;
+        case 0xCB: set_E(SET(1, get_E())); cycles = 12; break;
+        case 0xCC: set_H(SET(1, get_H())); cycles = 12; break;
+        case 0xCD: set_L(SET(1, get_L())); cycles = 12; break;
+        case 0xCE: ld(SET(1, rd(HL)), HL); cycles = 16; break; 
+        case 0xCF: set_A(SET(1, get_A())); cycles = 12; break;
+
+
+        case 0xD0: set_B(SET(2, get_B())); cycles = 12; break;
+        case 0xD1: set_C(SET(2, get_C())); cycles = 12; break;
+        case 0xD2: set_D(SET(2, get_D())); cycles = 12; break;
+        case 0xD3: set_E(SET(2, get_E())); cycles = 12; break;
+        case 0xD4: set_H(SET(2, get_H())); cycles = 12; break;
+        case 0xD5: set_L(SET(2, get_L())); cycles = 12; break;
+        case 0xD6: ld(SET(2, rd(HL)), HL); cycles = 16; break; 
+        case 0xD7: set_A(SET(2, get_A())); cycles = 12; break;
+        case 0xD8: set_B(SET(3, get_B())); cycles = 12; break;
+        case 0xD9: set_C(SET(3, get_C())); cycles = 12; break;
+        case 0xDA: set_D(SET(3, get_D())); cycles = 12; break;
+        case 0xDB: set_E(SET(3, get_E())); cycles = 12; break;
+        case 0xDC: set_H(SET(3, get_H())); cycles = 12; break;
+        case 0xDD: set_L(SET(3, get_L())); cycles = 12; break;
+        case 0xDE: ld(SET(3, rd(HL)), HL); cycles = 16; break; 
+        case 0xDF: set_A(SET(3, get_A())); cycles = 12; break;
+
+
+        case 0xE0: set_B(SET(4, get_B())); cycles = 12; break;
+        case 0xE1: set_C(SET(4, get_C())); cycles = 12; break;
+        case 0xE2: set_D(SET(4, get_D())); cycles = 12; break;
+        case 0xE3: set_E(SET(4, get_E())); cycles = 12; break;
+        case 0xE4: set_H(SET(4, get_H())); cycles = 12; break;
+        case 0xE5: set_L(SET(4, get_L())); cycles = 12; break;
+        case 0xE6: ld(SET(4, rd(HL)), HL); cycles = 16; break; 
+        case 0xE7: set_A(SET(4, get_A())); cycles = 12; break;
+        case 0xE8: set_B(SET(5, get_B())); cycles = 12; break;
+        case 0xE9: set_C(SET(5, get_C())); cycles = 12; break;
+        case 0xEA: set_D(SET(5, get_D())); cycles = 12; break;
+        case 0xEB: set_E(SET(5, get_E())); cycles = 12; break;
+        case 0xEC: set_H(SET(5, get_H())); cycles = 12; break;
+        case 0xED: set_L(SET(5, get_L())); cycles = 12; break;
+        case 0xEE: ld(SET(5, rd(HL)), HL); cycles = 16; break; 
+        case 0xEF: set_A(SET(5, get_A())); cycles = 12; break;
+
+
+        case 0xF0: set_B(SET(6, get_B())); cycles = 12; break;
+        case 0xF1: set_C(SET(6, get_C())); cycles = 12; break;
+        case 0xF2: set_D(SET(6, get_D())); cycles = 12; break;
+        case 0xF3: set_E(SET(6, get_E())); cycles = 12; break;
+        case 0xF4: set_H(SET(6, get_H())); cycles = 12; break;
+        case 0xF5: set_L(SET(6, get_L())); cycles = 12; break;
+        case 0xF6: ld(SET(6, rd(HL)), HL); cycles = 16; break; 
+        case 0xF7: set_A(SET(6, get_A())); cycles = 12; break;
+        case 0xF8: set_B(SET(7, get_B())); cycles = 12; break;
+        case 0xF9: set_C(SET(7, get_C())); cycles = 12; break;
+        case 0xFA: set_D(SET(7, get_D())); cycles = 12; break;
+        case 0xFB: set_E(SET(7, get_E())); cycles = 12; break;
+        case 0xFC: set_H(SET(7, get_H())); cycles = 12; break;
+        case 0xFD: set_L(SET(7, get_L())); cycles = 12; break;
+        case 0xFE: ld(SET(7, rd(HL)), HL); cycles = 16; break; 
+        case 0xFF: set_A(SET(7, get_A())); cycles = 12; break;
+
+
+        default:
+            std::cout << "UNKNOWN PREFIXED OPCODE!! " << +rd(PC + 1) << "\n";
+            break;
     }
 }
 
@@ -547,12 +796,43 @@ void cpu::ADD8(uint8_t byte) {
 
 void cpu::ADC(uint8_t byte) {
 
+    uint16_t result16 = get_A() + byte + get_CF();
+    uint8_t result = static_cast<uint8_t>(result16);
+    set_A(result);
+
+    set_ZF(result == 0);
+    set_NF(false);
+    set_HF(((get_A() & 0x0F) + (byte & 0x0F) + get_CF()) > 0x0F);
+    set_CF(result16 > 0xFF);
+
 }
 
 void cpu::SBC(uint8_t byte) {
 
+    uint8_t subtrahend = byte + get_CF();
+    uint8_t result = get_A() - subtrahend;
+    set_A(result);
+
+    set_ZF(result == 0);
+    set_NF(true);
+    set_HF((get_A() & 0x0F) < (subtrahend & 0x0F));
+    set_CF((byte + get_CF()) > get_A());
 }
 
+void cpu::SPADD(uint8_t byte) {
+
+    uint8_t sp_low = SP & 0xFF;
+    int32_t result = SP + static_cast<int8_t>(byte);
+    uint16_t low_result = sp_low + byte;
+
+    SP = result;
+
+    set_ZF(false);
+    set_NF(false);
+    set_HF((sp_low & 0x0F) + (byte & 0x0F) > 0x0F);
+    set_CF(low_result > 0xFF);
+
+}
 uint32_t cpu::ADD16(uint16_t a, uint16_t b) {
     uint32_t result = a + b;
 
@@ -572,4 +852,123 @@ void cpu::SUB(uint8_t byte) {
     set_NF(true);
     set_HF((get_A() & 0x0F) < (byte & 0x0F));
     set_CF(byte > get_A());
+}
+
+uint8_t cpu::SWAP(uint8_t reg) {
+
+    uint8_t temp;
+    uint8_t result;
+
+    temp = (reg & 0x0F) << 4;
+    result = ((reg & 0xF0) >> 4) | temp;
+
+
+    set_ZF(result == 0);
+    set_NF(false);
+    set_HF(false);
+    set_CF(false);
+
+    return result;
+}
+
+uint8_t cpu::RES(uint8_t bit, uint8_t reg) {
+
+    switch (bit) {
+        case 0:
+
+            return reg & 0b11111110;
+
+            break;
+        case 1:
+
+            return reg & 0b11111101;
+
+            break;
+        case 2:
+
+            return reg & 0b11111011;
+
+            break;
+        case 3:
+
+            return reg & 0b11110111;
+
+            break;
+        case 4:
+
+            return reg & 0b11101111;
+
+            break;
+        case 5:
+
+            return reg & 0b11011111;
+
+            break;
+        case 6:
+
+            return reg & 0b10111111;
+
+            break;
+        case 7:
+
+            return reg & 0b01111111;
+
+            break;
+        default:
+            std::cout << "INVALID BIT \n";
+            return 0;
+            break;  
+
+    }
+}
+
+uint8_t cpu::SET(uint8_t bit, uint8_t reg) {
+
+    switch (bit) {
+        case 0:
+
+            return reg | 0b00000001;
+
+            break;
+        case 1:
+
+            return reg | 0b00000010;
+
+            break;
+        case 2:
+
+            return reg | 0b00000100;
+
+            break;
+        case 3:
+
+            return reg | 0b00001000;
+
+            break;
+        case 4:
+
+            return reg | 0b00010000;
+
+            break;
+        case 5:
+
+            return reg | 0b00100000;
+
+            break;
+        case 6:
+
+            return reg | 0b01000000;
+
+            break;
+        case 7:
+
+            return reg | 0b100000000;
+
+            break;
+        default:
+            std::cout << "INVALID BIT \n";
+            return 0;
+            break;  
+
+    }
 }

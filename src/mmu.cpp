@@ -3,12 +3,8 @@
 #include <algorithm>
 #include <iostream>
 
-void mmu::setBootRom(uint8_t* rom, size_t size) {
-    std::copy(rom, rom + size, bootRom);
-}
-
 void mmu::ld(uint8_t data, uint16_t address) {
-    if (startup && address <= 0xFF) {
+    if (address <= 0xFF) {
         return; //bootrom is read only
     }
     else if (address >= 0 && address <= 0x3FFF) { //romBank 0
@@ -51,11 +47,11 @@ void mmu::ld(uint8_t data, uint16_t address) {
 }
 
 uint8_t  mmu::rd(uint16_t address) {
-    if (startup && address <= 0xFF && bootRomEnabled) { //BOOTROM
+    if (address <= 0xFF && bootRomEnabled) { //BOOTROM
         dataRet = bootRom[address];
     }
     else if (address >= 0 && address <= 0x3FFF) { //ROMBANK 0
-        dataRet = cart.romBank0[address];
+        dataRet = cart.romBank0[address]; 
     }
     else if (address >= 0x4000 && address <= 0x7FFF) { //ROMBANK 1
         dataRet = cart.romBank1[address - 0x4000];

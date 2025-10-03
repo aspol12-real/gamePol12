@@ -7,7 +7,7 @@ void ppu::tick() {
     clocks++; //increment clocks ONCE per tick
 
     if (LY < 144) {
-        if (clocks == 1) {  //OAM SEARCH (ONLY OAM CANNOT BE ACCESSED)
+        if (clocks >= 0 && clocks <= 79) {  //OAM SEARCH (ONLY OAM CANNOT BE ACCESSED)
             set_ppu_mode(oamsearch);
 
             spritesFound = 0;
@@ -81,7 +81,7 @@ void ppu::renderPixel() {
         uint8_t SCX = mem->rd(0xFF43);
         
         uint16_t bg_map_addr = 0x9800; // Default BG map
-        if (mem->rd(0xFF40) & 0x08) bg_map_addr = 0x9C00; // Alternate map
+        if (mem->rd(0xFF40) & 0x08 || mem->rd(0xFF40) & 64) bg_map_addr = 0x9C00; // Alternate map
         
         uint8_t tile_y = (LY + SCY) & 0xFF;
         uint8_t tile_x = (x + SCX) & 0xFF;
@@ -98,17 +98,47 @@ void ppu::renderPixel() {
         pixel_fifo.clear();
         for (int i = 0; i < 8; i++) {
             int bit_idx = 7 - i;
-            uint8_t color = ((high_byte >> bit_idx) & 1) << 1 | 
-                           ((low_byte >> bit_idx) & 1);
+            uint8_t color = ((high_byte >> bit_idx) & 1) << 1 | ((low_byte >> bit_idx) & 1);
             pixel_fifo.push_back(color);
         }
     }
     
+
+
     if (!pixel_fifo.empty()) {
         uint8_t color_idx = pixel_fifo.front();
         pixel_fifo.pop_front();
         
-        uint8_t final_color = get_color(color_idx, 0xFF47);
+        uint8_t bg_color = get_color(color_idx, 0xFF47);
+        uint8_t final_color = bg_color;
+
+        for (int i = 0; i < spritesFound; i++) {
+        uint8_t sprite_X = spritebuffer[i * 4 + 1];
+        if ((sprite_X <= x) && (x < sprite_X + 8)) {
+            uint8_t tile_num = spritebuffer[i * 4 + 2];
+            uint8_t flags = spritebuffer[i * 4 + 3];
+
+            uint8_t sprite_pixel_x = x - sprite_X;  
+            uint8_t sprite_pixel_y = (LY + 16) - spritebuffer[i * 4];
+
+            uint16_t tile_addr = 0x8000 + (tile_num * 16) + (sprite_pixel_y * 2);
+            uint8_t low_byte = VRAM[tile_addr - 0x8000];
+            uint8_t high_byte = VRAM[tile_addr - 0x8000 + 1];
+
+            int bit_idx = 7 - sprite_pixel_x;
+            uint8_t sprite_color = ((high_byte >> bit_idx) & 1) << 1 | ((low_byte >> bit_idx) & 1);
+
+
+            if (sprite_color != 0) {
+
+                uint16_t palette_addr = (flags & 0x10) ? 0xFF49 : 0xFF48;
+                final_color = get_color(sprite_color, palette_addr);
+                break;
+            }
+        }
+    }
+
+        final_color = get_color(color_idx, 0xFF47);
         screenBuffer[LY * 160 + x] = final_color;
         x++;
     }

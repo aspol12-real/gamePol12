@@ -4,6 +4,7 @@
 #include <raylib.h>
 #include <cstdlib>
 #include <iomanip>
+#include <array>
 
 #include "cpu.hpp"
 #include "mmu.hpp"
@@ -15,7 +16,7 @@ const int CELLSIZE = 4;
 
 const int screenWidth  = GB_WIDTH * CELLSIZE;
 const int screenHeight = GB_HEIGHT * CELLSIZE;
-const int TARGET_CYCLES_PER_FRAME = 69905; 
+const int TARGET_CYCLES_PER_FRAME = 76000; 
 
 uint8_t buttons_pressed = 0;
 uint8_t dpad_state;
@@ -28,19 +29,35 @@ bool debug = true;
 
 int peek_address = 0;
 
-Color richblack = {3, 25, 38, 255};
-Color teal      = {70, 129, 137, 255};
-Color ash       = {157, 190, 187, 255};
-Color parchment = {244, 233, 205, 255};
+std::array<Color, 4> palette1 = {{
+    {244, 233, 205, 255},
+    {157, 190, 187, 255},
+    {70, 129, 137, 255},
+    {3, 25, 38, 255}
+}};
 
-Color palette[4] = {
-    parchment,
-    ash,
-    teal,
-    richblack
-};
+std::array<Color, 4> palette2 = {{
+    {161, 204, 165, 255},
+    {112, 151, 117, 255},
+    {65, 93, 67, 255},
+    {17, 29, 19, 255}
+}};
 
+std::array<Color, 4> palette3 = {{
+    {255, 240, 243, 255}, 
+    {255, 77, 109, 255},  
+    {164, 19, 60, 255},   
+    {89, 13, 34, 255}     
+}};
 
+std::array<Color, 4> palette4 = {{
+    {255, 255, 255, 255},
+    {175, 175, 175, 255},
+    {65, 65, 65, 255},
+    {0, 0, 0, 255}
+}};
+
+std::array<Color, 4> current_Pallete = palette1;
 
 void render_screen(ppu& graphics);
 void draw_debug_overlay(cpu& gb);
@@ -157,6 +174,24 @@ int main(int argc, char *argv[]){
                 debug = false;
             }
         
+        //pallette switching
+        if (IsKeyPressed(KEY_ONE)) {
+            current_Pallete = palette1;
+        }
+        if (IsKeyPressed(KEY_TWO)) {
+            current_Pallete = palette2;
+        }
+        if (IsKeyPressed(KEY_THREE)) {
+            current_Pallete = palette3;
+        }
+        if (IsKeyPressed(KEY_FOUR)) {
+            current_Pallete = palette4;
+        }
+
+
+
+        //rendering!
+
         ClearBackground(BLACK);
 
         if (gb.rd(0xFF40) & 0x80) {
@@ -186,7 +221,7 @@ void render_screen(ppu& graphics) {
             int buffer_index = (y * GB_WIDTH) + x;
             uint8_t color_code = graphics.screenBuffer[buffer_index];
 
-            Color pixel_color = palette[color_code & 0b11]; 
+            Color pixel_color = current_Pallete[color_code & 0b11]; 
             
             DrawRectangle(x * CELLSIZE, y * CELLSIZE, CELLSIZE, CELLSIZE, pixel_color);
         }
