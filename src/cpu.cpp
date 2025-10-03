@@ -45,6 +45,8 @@ void cpu::initialize(std::string rom) {
 
     ld(0, 0xFF40);
 
+    ld(0b10000000, 0xFF02); //SERIAL PORT DISABLED
+
 }
 
 int cpu::execute() {
@@ -61,7 +63,7 @@ int cpu::execute() {
         disable_pending = false;
     }
     if (enable_pending) {
-        IME = false;
+        IME = true;
         enable_pending = false;
     }
     //decode
@@ -86,7 +88,7 @@ int cpu::execute() {
         case 0x0F: set_A(RRC(get_A())); set_ZF(false); PC++; cycles = 4; break;
 
 
-        //missing 0x10 STOP
+        case 0x10: if(n8 == 0x00) {stopped = true;} PC += 2; cycles = 4; break;
         case 0x11: DE = n16; PC += 3; cycles = 12; break;
         case 0x12: ld(get_A(), DE); PC++; cycles = 8; break;
         case 0x13: inc_DE(); PC++; cycles = 8; break;
@@ -200,7 +202,7 @@ int cpu::execute() {
         case 0x73: ld(get_E(), HL); PC++; cycles = 8; break;
         case 0x74: ld(get_H(), HL); PC++; cycles = 8; break;
         case 0x75: ld(get_L(), HL); PC++; cycles = 8; break;
-        //missing 0x76 HALT
+        case 0x76: halted = true; PC++; cycles = 4; break;
         case 0x77: ld(get_A(), HL); PC++; cycles = 8; break;
         case 0x78: set_A(get_B()); PC++; cycles = 4; break;
         case 0x79: set_A(get_C()); PC++; cycles = 4; break;
@@ -220,14 +222,14 @@ int cpu::execute() {
         case 0x85: ADD8(get_L()); PC++; cycles = 4; break;
         case 0x86: ADD8(rd(HL)); PC++; cycles = 8; break;
         case 0x87: ADD8(get_A()); PC++; cycles = 4; break;
-        case 0x88: ADD8(get_B() + get_CF()); PC++; cycles = 4; break;
-        case 0x89: ADD8(get_C() + get_CF()); PC++; cycles = 4; break;
-        case 0x8A: ADD8(get_D() + get_CF()); PC++; cycles = 4; break;
-        case 0x8B: ADD8(get_E() + get_CF()); PC++; cycles = 4; break;
-        case 0x8C: ADD8(get_H() + get_CF()); PC++; cycles = 4; break;
-        case 0x8D: ADD8(get_L() + get_CF()); PC++; cycles = 4; break;
-        case 0x8E: ADD8(rd(HL) + get_CF()); PC++; cycles = 8; break;
-        case 0x8F: ADD8(get_A() + get_CF()); PC++; cycles = 4; break;
+        case 0x88: ADC(get_B()); PC++; cycles = 4; break;
+        case 0x89: ADC(get_C()); PC++; cycles = 4; break;
+        case 0x8A: ADC(get_D()); PC++; cycles = 4; break;
+        case 0x8B: ADC(get_E()); PC++; cycles = 4; break;
+        case 0x8C: ADC(get_H()); PC++; cycles = 4; break;
+        case 0x8D: ADC(get_L()); PC++; cycles = 4; break;
+        case 0x8E: ADC(rd(HL)); PC++; cycles = 8; break;
+        case 0x8F: ADC(get_A()); PC++; cycles = 4; break;
 
 
         case 0x90: SUB(get_B()); PC++; cycles = 4; break;
@@ -238,6 +240,14 @@ int cpu::execute() {
         case 0x95: SUB(get_L()); PC++; cycles = 4; break;
         case 0x96: SUB(rd(HL)); PC++; cycles = 8; break;
         case 0x97: set_A(0); set_ZF(true); set_NF(true); set_HF(false); set_CF(false); PC++; cycles = 4; break;
+        case 0x98: SBC(get_B()); PC++; cycles = 4; break;
+        case 0x99: SBC(get_C()); PC++; cycles = 4; break;
+        case 0x9A: SBC(get_D()); PC++; cycles = 4; break;
+        case 0x9B: SBC(get_E()); PC++; cycles = 4; break;
+        case 0x9C: SBC(get_H()); PC++; cycles = 4; break;
+        case 0x9D: SBC(get_L()); PC++; cycles = 4; break;
+        case 0x9E: SBC(rd(HL)); PC++; cycles = 8; break;
+        case 0x9F: SBC(get_A()); PC++; cycles = 4; break;
 
 
         case 0xA0: set_A(AND(get_A(), get_B())); PC++; cycles = 4; break;
@@ -276,55 +286,75 @@ int cpu::execute() {
         case 0xBF: set_ZF(true); set_NF(true); set_HF(false); set_CF(false); PC++; cycles = 4; break;
 
 
+        case 0xC0: if(get_ZF() == 0) {POP(PC); cycles = 20;} else {PC++; cycles = 8;}; break;
         case 0xC1: POP(BC); PC++; cycles = 12; break;
-
+        case 0xC2: if(get_ZF() == 0) {PC = n16; cycles = 16;} else {PC += 3; cycles = 12;}; break;
         case 0xC3: PC = n16; cycles = 16; break;
-
+        case 0xC4: if(get_ZF() == 0) {PUSH(PC + 3); PC = n16; cycles = 24;} else {PC += 3; cycles = 12;}; break;
         case 0xC5: PUSH(BC); PC++; cycles = 16; break;
         case 0xC6: ADD8(n8); PC += 2; cycles = 8; break;
-
-        case 0xC8: if(get_ZF()) {POP(PC); cycles = 20;} else {cycles = 8;}; break;
+        case 0xC7: PUSH(PC + 1); PC = 0x00; cycles = 16; break; // RST $00
+        case 0xC8: if(get_ZF() == 1) {POP(PC); cycles = 20;} else {cycles = 8;}; break;
         case 0xC9: POP(PC); cycles = 16; break; //return from subroutine
-
+        case 0xCA: if(get_ZF() == 1) {PC = n16; cycles = 16;} else {PC += 3; cycles = 12;}; break;
         case 0xCB: PREFIXED(opcode); PC += 2; break;
-
+        case 0xCC: if(get_ZF() == 1) {PUSH(PC + 3); PC = n16; cycles = 24;} else {PC += 3; cycles = 12;}; break;
         case 0xCD: PUSH(PC + 3); PC = n16; cycles = 24; break;  
+        case 0xCE: ADC(n8); PC += 2; cycles = 8; break;
+        case 0xCF: PUSH(PC + 1); PC = 0x08; cycles = 16; break; // RST $08
 
 
-
+        case 0xD0: if(get_ZF() == 0) {POP(PC); cycles = 20;} else {PC++; cycles = 8;}; break;
         case 0xD1: POP(DE); PC++; cycles = 12; break;
-
+        case 0xD2: if(get_CF() == 0) {PC = n16; cycles = 16;} else {PC += 3; cycles = 12;}; break;
+        //ILLEGAL OPCODE 0xD3
+        case 0xD4: if(get_CF() == 0) {PUSH(PC + 3); PC = n16; cycles = 24;} else {PC += 3; cycles = 12;}; break;
         case 0xD5: PUSH(DE); PC++; cycles = 16; break;
         case 0xD6: SUB(n8); PC += 2; cycles = 8; break;
+        case 0xD7: PUSH(PC + 1); PC = 0x10; cycles = 16; break; // RST $10
+        case 0xD8: if(get_CF() == 1) {POP(PC); cycles = 20;} else {cycles = 8;}; break;
 
+        case 0xDA: if(get_CF() == 1) {PC = n16; cycles = 16;} else {PC += 3; cycles = 12;}; break;
+        //ILLEGAL OPCODE 0xDB
+        case 0xDC: if(get_CF() == 1) {PUSH(PC + 3); PC = n16; cycles = 24;} else {PC += 3; cycles = 12;}; break;
+
+        case 0xDE: SBC(n8); PC += 2; cycles = 8; break;
+        case 0xDF: PUSH(PC + 1); PC = 0x18; cycles = 16; break; // RST $18
 
 
         case 0xE0: ld(get_A(), a8); PC += 2; cycles = 12; break;
         case 0xE1: POP(HL); PC++; cycles = 12; break;
         case 0xE2: ld(get_A(), 0xFF00 + get_C()); PC++; cycles = 8; break;
-        //ILLEGAL OPCODES 0xE3-0xE4
+        //ILLEGAL OPCODE 0xE3
+        //ILLEGAL OPCODE 0xE4
         case 0xE5: PUSH(HL); PC++; cycles = 16; break;
         case 0xE6: set_A(AND(get_A(), n8)); PC += 2; cycles = 8; break;
+        case 0xE7: PUSH(PC + 1); PC = 0x20; cycles = 16; break; // RST $20
+
         case 0xE9: PC = HL; cycles = 4; break;
-
-
         case 0xEA: ld(get_A(), n16); PC += 3; cycles = 16; break;
-
-        case 0xEF: PC = 0x28; cycles = 16; break; // RST $28
+        //ILLEGAL OPCODE 0xEB
+        //ILLEGAL OPCODE 0xEC
+        //ILLEGAL OPCODE 0xED
+        case 0xEE: set_A(XOR(get_A(), n8)); PC += 2; cycles = 8; break;
+        case 0xEF: PUSH(PC + 1); PC = 0x28; cycles = 16; break; // RST $28
 
 
         case 0xF0: set_A(rd(a8)); PC += 2; cycles = 12; break;
-
+        case 0xF1: POP_AF(); PC++; cycles = 16; break;
         case 0xF2: set_A(rd(get_C())); PC++; cycles = 8; break;
         case 0xF3: disable_pending = true; PC++; cycles = 4; break;
-
-        case 0xF5: 
+        //ILLEGAL OPCODE 0xF4
+        case 0xF5: PUSH_AF(); PC++; cycles = 16; break;
         case 0xF6: set_A(OR(get_A(), n8)); PC += 2; cycles = 8; break;
+        case 0xF7: PUSH(PC + 1); PC = 0x30; cycles = 16; break; // RST $30
 
         case 0xFA: set_A(rd(n16)); PC += 3; cycles = 16; break;
         case 0xFB: enable_pending = true; PC++; cycles = 4; break;
-
+        //ILLEGAL OPCODE 0xFC
+        //ILLEGAL OPCODE 0xFD
         case 0xFE: CP(get_A(), n8); PC += 2; cycles = 8; break;
+        case 0xFF: PUSH(PC + 1); PC = 0x38; cycles = 16; break; // RST $38
 
         default:
             std::cout << "UNKNOWN OPCODE: " << std::hex << +opcode << "\n";
@@ -397,11 +427,24 @@ void cpu::PUSH(uint16_t addr) {
     ld(addr >> 8, SP + 1);
 }
 
-void cpu::PUSH_AF(uint16_t addr) {
+void cpu::PUSH_AF() {
     SP--;
     ld(get_A(), SP);
     SP--;
     ld((get_ZF() << 7) | (get_NF() << 6) | (get_HF() << 5) | (get_CF() << 4), SP);
+}
+
+void cpu::POP_AF() {
+    uint8_t lowByte = rd(SP);
+
+    set_ZF((lowByte >> 7) & 0x1);
+    set_NF((lowByte >> 6) & 0x1);
+    set_HF((lowByte >> 5) & 0x1);
+    set_CF((lowByte >> 4) & 0x1);
+    SP++;
+    set_A(rd(SP));
+    SP++;
+
 }
 
 void cpu::POP(uint16_t& reg) {
@@ -416,7 +459,7 @@ void cpu::POP(uint16_t& reg) {
 
 uint8_t cpu::RL(uint8_t byte) {
     uint8_t carryBit = (get_F() & cf) >> 4;
-    uint8_t carryFlag = (byte >> 3) & cf;
+    uint8_t carryFlag = (byte >> 7) & 0x1;
     uint8_t resultByte = (byte << 1) | carryBit;
     
     set_ZF(resultByte == 0);
@@ -500,6 +543,14 @@ void cpu::ADD8(uint8_t byte) {
     set_NF(false);
     set_HF(((get_A() & 0x0F) + (byte & 0x0F)) > 0x0F);  // Half-carry
     set_CF(result > 0xFF);    
+}
+
+void cpu::ADC(uint8_t byte) {
+
+}
+
+void cpu::SBC(uint8_t byte) {
+
 }
 
 uint32_t cpu::ADD16(uint16_t a, uint16_t b) {

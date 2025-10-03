@@ -26,6 +26,9 @@ void mmu::ld(uint8_t data, uint16_t address) {
     else if (address >= 0xD000 && address <= 0xDFFF) { //WRAM 2
         WRAM_2[address - 0xD000] = data;
     } 
+    else if (address >= 0xE000 && address <= 0xFDFF) { //echo ram
+        WRAM_1[address - 0xE000] = data;  
+    }
     else if (address == 0xFF50) {
         if (data == 0x01) {
             bootRomEnabled = false; 
@@ -38,11 +41,11 @@ void mmu::ld(uint8_t data, uint16_t address) {
         HRAM[address - 0xFF80] = data;
     }
     else if (address == 0xFFFF) {
-        std::cout << "INTERRUPT REGISTER POKED! \n";
+        interrupts = data;
+        std::cout << "INTERRUPT REGISTER POKED WITH: " << std::hex << +data << "\n";
     }
     else {
         std::cout << "BAD POKE . ADDRESS: " << std::hex << +address << "\n";
-        exit( 1 );
         return;
     }
 }
@@ -75,9 +78,12 @@ uint8_t  mmu::rd(uint16_t address) {
     else if (address >= 0xFF80 && address <= 0xFFFE) { //HRAM
         dataRet = HRAM[address - 0xFF80];
     }
+    else if (address == 0xFFFF) {
+        dataRet = interrupts;
+        std::cout << "INTERRUPT REGISTER PEEKED! \n";
+    }
     else {
         std::cout << "BAD PEEK . ADDRESS: " << std::hex << +address << "\n";
-        exit( 1 );
     }
     return dataRet;
 }

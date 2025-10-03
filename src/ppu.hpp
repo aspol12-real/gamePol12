@@ -18,6 +18,7 @@ class ppu {
         const int GB_WIDTH = 160;
         const int GB_HEIGHT = 144;
 
+
         uint8_t temp = 0;
 
         uint8_t x = 0;                 
@@ -25,6 +26,7 @@ class ppu {
 
         bool oamRestrict = false;
         bool vramRestrict = false;
+        bool vblank = false;
 
         uint8_t VRAM[8192];
         uint8_t OAM[159];

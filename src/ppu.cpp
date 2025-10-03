@@ -56,6 +56,10 @@ void ppu::tick() {
         LY++;
 
         if (LY == 144) { //ENTER VBLANK SCANLINE PERIOD
+            uint8_t temp = mem->rd(0xFF0F);
+            temp |= 0x1;
+            mem->ld(temp, 0xFF0F);
+
             oamRestrict = false;
             vramRestrict = false;
             set_ppu_mode(v_blank);

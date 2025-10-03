@@ -24,6 +24,7 @@ class mmu {
         bool bootRomEnabled = true;
         //io registers
         uint8_t IO[128];
+        uint8_t interrupts = 0; 
 
         //methods
         void setBootRom(uint8_t* rom, size_t size);

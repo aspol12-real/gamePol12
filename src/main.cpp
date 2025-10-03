@@ -43,6 +43,7 @@ Color palette[4] = {
 
 
 void render_screen(ppu& graphics);
+void draw_debug_overlay(cpu& gb);
 
 int main(int argc, char *argv[]){
 
@@ -108,11 +109,11 @@ int main(int argc, char *argv[]){
         }
 
         if(buttons_enable) {
-            buttons_pressed |= 0b100000; 
+            buttons_pressed |= 0b00100000; 
         } else if (dpad_enable) {
-            buttons_pressed |= 0b010000;   
+            buttons_pressed |= 0b00010000;   
         } else {
-            buttons_pressed = 0;
+            buttons_pressed = 0xFF;
         }
 
         gb.ld(buttons_pressed, 0xFF00);
@@ -163,27 +164,8 @@ int main(int argc, char *argv[]){
         }
 
 
-        if(debug) {
-            DrawText(TextFormat("AF: %04x", gb.AF), 0, 0, 20, RED);
-            DrawText(TextFormat("BC: %04x", gb.BC), 0, 30, 20, RED);
-            DrawText(TextFormat("DE: %04x", gb.DE), 0, 60, 20, RED);
-            DrawText(TextFormat("HL: %04x", gb.HL), 0, 90, 20, RED);
-            DrawText(TextFormat("SP: %04x", gb.SP), 0, 120, 20, RED);
-            DrawText(TextFormat("OPCODE: %02x", gb.opcode), 0, 150, 20, RED);
-            DrawText(TextFormat("PC: %04x", gb.PC), 0, 180, 20, RED);
-            DrawText(TextFormat("ZF: %d", gb.get_ZF()), 0, 210, 20, RED);
-            DrawText(TextFormat("NF: %d", gb.get_NF()), 0, 240, 20, RED);
-            DrawText(TextFormat("HF: %d", gb.get_HF()), 0, 270, 20, RED);
-            DrawText(TextFormat("CF: %d", gb.get_CF()), 0, 300, 20, RED);
-            DrawText(TextFormat("cycles: %d", gb.cycles), 0, 330, 20, RED);
-            DrawText(TextFormat("LCDC: %04x", gb.rd(0xFF40)), 0, 360, 20, RED);
-            DrawText(TextFormat("SCY: %04x", gb.rd(0xFF42)), 0, 390, 20, RED);
-            DrawText(TextFormat("SCX: %04x", gb.rd(0xFF43)), 0, 420, 20, RED);
-            DrawText(TextFormat("WY: %04x", gb.rd(0xFF4A)), 0, 450, 20, RED);
-            DrawText(TextFormat("WX: %04x", gb.rd(0xFF4B)), 0, 480, 20, RED);
-            DrawText(TextFormat("PALLETTE: %04x", gb.rd(0xFF47)), 0, 510, 20, RED);
-            DrawText(TextFormat("BUTTON: %04x", gb.rd(0xFF00)), 0, 540, 20, RED);
-            
+        if(debug) { 
+            draw_debug_overlay(gb);
         }
 
         EndDrawing();
@@ -209,5 +191,27 @@ void render_screen(ppu& graphics) {
             DrawRectangle(x * CELLSIZE, y * CELLSIZE, CELLSIZE, CELLSIZE, pixel_color);
         }
     }
+}
+
+void draw_debug_overlay(cpu& gb) {
+    DrawText(TextFormat("AF: %04x", gb.AF), 0, 0, 20, RED);
+    DrawText(TextFormat("BC: %04x", gb.BC), 0, 30, 20, RED);
+    DrawText(TextFormat("DE: %04x", gb.DE), 0, 60, 20, RED);
+    DrawText(TextFormat("HL: %04x", gb.HL), 0, 90, 20, RED);
+    DrawText(TextFormat("SP: %04x", gb.SP), 0, 120, 20, RED);
+    DrawText(TextFormat("OPCODE: %02x", gb.opcode), 0, 150, 20, RED);
+    DrawText(TextFormat("PC: %04x", gb.PC), 0, 180, 20, RED);
+    DrawText(TextFormat("ZF: %d", gb.get_ZF()), 0, 210, 20, RED);
+    DrawText(TextFormat("NF: %d", gb.get_NF()), 0, 240, 20, RED);
+    DrawText(TextFormat("HF: %d", gb.get_HF()), 0, 270, 20, RED);
+    DrawText(TextFormat("CF: %d", gb.get_CF()), 0, 300, 20, RED);
+    DrawText(TextFormat("cycles: %d", gb.cycles), 0, 330, 20, RED);
+    DrawText(TextFormat("LCDC: %04x", gb.rd(0xFF40)), 0, 360, 20, RED);
+    DrawText(TextFormat("SCY: %04x", gb.rd(0xFF42)), 0, 390, 20, RED);
+    DrawText(TextFormat("SCX: %04x", gb.rd(0xFF43)), 0, 420, 20, RED);
+    DrawText(TextFormat("WY: %04x", gb.rd(0xFF4A)), 0, 450, 20, RED);
+    DrawText(TextFormat("WX: %04x", gb.rd(0xFF4B)), 0, 480, 20, RED);
+    DrawText(TextFormat("PALLETTE: %04x", gb.rd(0xFF47)), 0, 510, 20, RED);
+    DrawText(TextFormat("INTERRUPT: %04x", gb.mem.interrupts), 0, 540, 20, RED);
 }
 
