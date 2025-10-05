@@ -7,7 +7,7 @@
 
 void cpu::initialize(std::string rom) {
     
-    PC = 0x0;
+    PC = 0x100;
     SP = 0xFFFE;
     std::ifstream file;
     file.open(rom, std::ios::in | std::ios::binary);
@@ -51,9 +51,7 @@ void cpu::initialize(std::string rom) {
 
 int cpu::execute() {
 
-    if (PC > 0xFF) {
-        mem.bootRomEnabled = false;
-    }
+
     //get current opcode
     opcode = rd(PC);
 
@@ -75,7 +73,7 @@ int cpu::execute() {
     switch(opcode) {
 
         case 0x00: PC++; cycles = 4; break; //NOP
-        case 0x01: HL = n16; PC += 3; cycles = 12; break;
+        case 0x01: BC = n16; PC += 3; cycles = 12; break;
         case 0x02: ld(get_A(), BC); PC++; cycles = 8; break;
         case 0x03: inc_BC(); PC++; cycles = 8; break;
         case 0x04: set_B(INC(get_B())); PC++; cycles = 4; break; //INC B
