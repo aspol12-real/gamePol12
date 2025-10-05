@@ -38,7 +38,7 @@ void mmu::ld(uint8_t data, uint16_t address) {
     }
     else if (address == 0xFFFF) {
         interrupts = data;
-        std::cout << "INTERRUPT REGISTER POKED WITH: " << std::hex << +data << "\n";
+        // std::cout << "INTERRUPT REGISTER POKED WITH: " << std::hex << +data << "\n";
     }
     else {
         std::cout << "BAD POKE . ADDRESS: " << std::hex << +address << "\n";
@@ -76,7 +76,7 @@ uint8_t  mmu::rd(uint16_t address) {
     }
     else if (address == 0xFFFF) {
         dataRet = interrupts;
-        std::cout << "INTERRUPT REGISTER PEEKED! \n";
+        //std::cout << "INTERRUPT REGISTER PEEKED! \n";
     }
     else {
         std::cout << "BAD PEEK . ADDRESS: " << std::hex << +address << "\n";

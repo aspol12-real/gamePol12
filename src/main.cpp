@@ -19,8 +19,10 @@ const int screenHeight = GB_HEIGHT * CELLSIZE;
 const int TARGET_CYCLES_PER_FRAME = 76000; 
 
 uint8_t buttons_pressed = 0;
-uint8_t dpad_state;
-uint8_t buttons_state;
+
+//(active high)
+uint8_t dpad_state = 0xFF;
+uint8_t buttons_state = 0xFF;
 
 bool dpad_enable = false;
 bool buttons_enable = false;
@@ -83,47 +85,17 @@ int main(int argc, char *argv[]){
         buttons_pressed = 0;
 
         //get gameboy keypad input
-        if (IsKeyDown(KEY_UP)) {
-            buttons_enable = false;
+        uint8_t keystate = gb.rd(0xFF00) & 0b01100000;
+        
+        if (keystate == 0x10) {
             dpad_enable = true;
-            buttons_pressed |= 0b0100;
-        }
-        if (IsKeyDown(KEY_DOWN)) {
             buttons_enable = false;
-            dpad_enable = true;
-            buttons_pressed |= 0b1000;
-        }
-        if (IsKeyDown(KEY_LEFT)) {
-            buttons_enable = false;
-            dpad_enable = true;
-            buttons_pressed |= 0b0010;
-        }
-        if (IsKeyDown(KEY_RIGHT)) {
-            buttons_enable = false;
-            dpad_enable = true;
-            buttons_pressed |= 0b0001;
+        } else if (keystate == 0x20) {
+            dpad_enable = false;
+            buttons_enable = true;
         }
 
-        if (IsKeyDown(KEY_RIGHT_SHIFT)) {
-            buttons_enable = true;
-            dpad_enable = false;
-            buttons_pressed |= 0b0100;
-        }
-        if (IsKeyDown(KEY_ENTER)) {
-            buttons_enable = true;
-            dpad_enable = false;
-            buttons_pressed |= 0b1000;
-        }
-        if (IsKeyDown(KEY_Z)) {
-            buttons_enable = true;
-            dpad_enable = false;
-            buttons_pressed |= 0b0010;
-        }
-        if (IsKeyDown(KEY_X)) {
-            buttons_enable = true;
-            dpad_enable = false;
-            buttons_pressed |= 0b0001;
-        }
+
 
         if(buttons_enable) {
             buttons_pressed |= 0b00100000; 
@@ -244,9 +216,9 @@ void draw_debug_overlay(cpu& gb) {
     DrawText(TextFormat("LCDC: %04x", gb.rd(0xFF40)), 0, 360, 20, RED);
     DrawText(TextFormat("SCY: %04x", gb.rd(0xFF42)), 0, 390, 20, RED);
     DrawText(TextFormat("SCX: %04x", gb.rd(0xFF43)), 0, 420, 20, RED);
-    DrawText(TextFormat("WY: %04x", gb.rd(0xFF4A)), 0, 450, 20, RED);
-    DrawText(TextFormat("WX: %04x", gb.rd(0xFF4B)), 0, 480, 20, RED);
-    DrawText(TextFormat("PALLETTE: %04x", gb.rd(0xFF47)), 0, 510, 20, RED);
+    DrawText(TextFormat("LY: %04x", gb.rd(0xFF44)), 0, 450, 20, RED);
+    DrawText(TextFormat("[HL]: %02x, [BC]: %02x", gb.rd(gb.HL), gb.rd(gb.BC)), 0, 480, 20, RED);
+    DrawText(TextFormat("[0xFFE1]: %04x", gb.rd(0xFFE1)), 0, 510, 20, RED);
     DrawText(TextFormat("INTERRUPT: %04x", gb.mem.interrupts), 0, 540, 20, RED);
 }
 

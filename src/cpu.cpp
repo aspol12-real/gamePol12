@@ -7,7 +7,7 @@
 
 void cpu::initialize(std::string rom) {
     
-    PC = 0x100;
+    PC = 0x0;
     SP = 0xFFFE;
     std::ifstream file;
     file.open(rom, std::ios::in | std::ios::binary);
@@ -43,7 +43,8 @@ void cpu::initialize(std::string rom) {
 
     file.close();
 
-    ld(0x0, 0xFF40);
+    ld(0x80, 0xFF40); //LCDC
+    ld(0xFF, 0xFF00);
 
     ld(0b10000000, 0xFF02); //SERIAL PORT DISABLED
 
@@ -315,7 +316,7 @@ int cpu::execute() {
         case 0xD6: SUB(n8); PC += 2; cycles = 8; break;
         case 0xD7: PUSH(PC + 1); PC = 0x10; cycles = 16; break; // RST $10
         case 0xD8: if(get_CF() == 1) {POP(PC); cycles = 20;} else {PC++; cycles = 8;}; break;
-        case 0xD9: POP(PC); cycles = 16; break; //RETI, CHANGE TO BE ACCURATE LATER
+        case 0xD9: POP(PC); cycles = 16; IME = true; break;
         case 0xDA: if(get_CF() == 1) {PC = n16; cycles = 16;} else {PC += 3; cycles = 12;}; break;
         //ILLEGAL OPCODE 0xDB
         case 0xDC: if(get_CF() == 1) {PUSH(PC + 3); PC = n16; cycles = 24;} else {PC += 3; cycles = 12;}; break;
@@ -332,7 +333,7 @@ int cpu::execute() {
         case 0xE5: PUSH(HL); PC++; cycles = 16; break;
         case 0xE6: set_A(AND(get_A(), n8)); PC += 2; cycles = 8; break;
         case 0xE7: PUSH(PC + 1); PC = 0x20; cycles = 16; break; // RST $20
-        case 0xE8: SPADD(n8); PC += 2; cycles = 12; break;
+        case 0xE8: SP = SPADD(n8); PC += 2; cycles = 12; break;
         case 0xE9: PC = HL; cycles = 4; break;
         case 0xEA: ld(get_A(), n16); PC += 3; cycles = 16; break;
         //ILLEGAL OPCODE 0xEB
@@ -350,7 +351,7 @@ int cpu::execute() {
         case 0xF5: PUSH_AF(); PC++; cycles = 16; break;
         case 0xF6: set_A(OR(get_A(), n8)); PC += 2; cycles = 8; break;
         case 0xF7: PUSH(PC + 1); PC = 0x30; cycles = 16; break; // RST $30
-
+        case 0xF8: HL = SPADD(n8); PC += 2; cycles = 12; break;
         case 0xF9: SP = HL; PC++; cycles = 8; break;
         case 0xFA: set_A(rd(n16)); PC += 3; cycles = 16; break;
         case 0xFB: enable_pending = true; PC++; cycles = 4; break;
@@ -374,6 +375,29 @@ int cpu::execute() {
             PC++;
     }
 
+    if (IME) {
+
+        uint8_t IE = rd(0xFFFF);
+        uint8_t IF = rd(0xFF0F);
+
+        uint8_t pending = IE & IF;
+
+        if (pending > 0) {
+            for (int i = 0; i <= 4; i++) {
+                uint8_t interrupt_bit = (1 << i);
+
+                if(pending & interrupt_bit) {
+                    IME = false;
+
+                    ld((IF & ~interrupt_bit), 0xFF0F); 
+                    PUSH(PC); 
+                    PC = 0x0040 | (i * 0x8);
+                    cycles += 20;
+                }    
+            }
+        }
+    }
+
 
     //execute ppu for N cycles per cpu cycle only if LCD is on!
     if (rd(0xFF40) & 0x80) {
@@ -381,6 +405,7 @@ int cpu::execute() {
             graphics.tick();
         }
     }
+
 
     return cycles;
 }
@@ -817,19 +842,20 @@ void cpu::SBC(uint8_t byte) {
     set_CF((byte + get_CF()) > get_A());
 }
 
-void cpu::SPADD(uint8_t byte) {
+uint16_t cpu::SPADD(uint8_t byte) {
 
     uint8_t sp_low = SP & 0xFF;
     int32_t result = SP + static_cast<int8_t>(byte);
     uint16_t low_result = sp_low + byte;
 
-    SP = result;
+    
 
     set_ZF(false);
     set_NF(false);
     set_HF((sp_low & 0x0F) + (byte & 0x0F) > 0x0F);
     set_CF(low_result > 0xFF);
 
+    return static_cast<uint16_t>(result);
 }
 uint32_t cpu::ADD16(uint16_t a, uint16_t b) {
     uint32_t result = a + b;

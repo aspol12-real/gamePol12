@@ -65,19 +65,19 @@ class cpu {
             
             if (address >= 0x8000 && address <= 0x9FFF) {
                 if (graphics.vramRestrict) {
-                    return 0;
+                    return 0xFF;
                 } else {
                     return graphics.VRAM[address - 0x8000];
                 }
             } else if (address >= 0xFE00 && address <= 0xFE9F) {
                 if (graphics.oamRestrict) {
-                    return 0;
+                    return 0xFF;
                 } else {
                     return graphics.OAM[address - 0xFE00];
                 }
             } else if (address >= 0xFEA0 && address <= 0xFEFF) {
                 // std::cout << "NOT USABLE. PC = " << std::hex << +PC << " OPCODE = " << +opcode << " HL = " << +HL << "\n";
-                return 0; 
+                return 0xFF; 
             } else {
                 return mem.rd(address);
             }
@@ -159,7 +159,7 @@ class cpu {
         void SUB(uint8_t byte);
         void ADC(uint8_t byte);
         void SBC(uint8_t byte);
-        void SPADD(uint8_t byte);
+        uint16_t SPADD(uint8_t byte);
         uint8_t SWAP(uint8_t reg);
         uint8_t RES(uint8_t bit, uint8_t reg);
         uint8_t SET(uint8_t bit, uint8_t reg);
