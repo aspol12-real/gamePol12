@@ -1,0 +1,12 @@
+short term:
+
+- remove pixel FIFO logic from the PPU (for now)
+- implement OAM DMA transfer
+- find out why nintendo logo isn't displaying anymore
+- finish all opcodes (including prefixed)
+
+long term:
+
+- overhaul debugger to use a better gui method, and include a live memoery viewer (?)
+- implement actual mapper functionality
+- implement APU
