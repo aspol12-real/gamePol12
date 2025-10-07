@@ -2,11 +2,14 @@ short term:
 
 - remove pixel FIFO logic from the PPU (for now)
 - implement OAM DMA transfer
-- find out why nintendo logo isn't displaying anymore
 - finish all opcodes (including prefixed)
+- find out why blargg roms just crash
+- add serial port console I/O for blargg roms
+- stop tileset viewer flickering issue
 
 long term:
 
-- overhaul debugger to use a better gui method, and include a live memoery viewer (?)
+
+- overhaul debugger to use a better gui method (maybe just imgui), and include a live memory viewer (?)
 - implement actual mapper functionality
 - implement APU
