@@ -1,7 +1,9 @@
 #include "mmu.hpp"
 
-#include <algorithm>
 #include <iostream>
+
+extern uint8_t g_polled_actions;
+extern uint8_t g_polled_directions;
 
 void mmu::ld(uint8_t data, uint16_t address) {
     if (address <= 0xFF) {
@@ -23,12 +25,27 @@ void mmu::ld(uint8_t data, uint16_t address) {
         WRAM_2[address - 0xD000] = data;
     } 
     else if (address >= 0xE000 && address <= 0xFDFF) { //echo ram
-        WRAM_1[address - 0xE000] = data;  
+        uint16_t mirrored_address = address - 0x2000; 
+
+        if (mirrored_address >= 0xC000 && mirrored_address <= 0xCFFF) { 
+            WRAM_1[mirrored_address - 0xC000] = data;
+        } else if (mirrored_address >= 0xD000 && mirrored_address <= 0xDFFF) { 
+            WRAM_2[mirrored_address - 0xD000] = data;
+        } 
     }
     else if (address == 0xFF50) {
         if (data == 0x01) {
             bootRomEnabled = false; 
         }
+    }
+    else if (address == 0xFF00) {
+        //only write to high nibble
+
+        std::cout << "I WANT TO WRITE " << std::hex << +data << "\n";
+        uint8_t temp = IO[0] & 0x0F;
+        data |= temp;
+        IO[0] = data | 0xC0;
+
     }
     else if (address >= 0xFF00 && address <= 0xFF7F) { //I/O registers
         IO[address - 0xFF00] = data;
@@ -66,8 +83,33 @@ uint8_t  mmu::rd(uint16_t address) {
         dataRet = WRAM_2[address - 0xD000];
     } 
     else if (address >= 0xE000 && address <= 0xFDFF) { //echo ram
-        dataRet = WRAM_1[address - 0xE000];  
+
+        uint16_t mirrored_address = address - 0x2000; 
+
+        if (mirrored_address >= 0xC000 && mirrored_address <= 0xCFFF) { 
+            dataRet = WRAM_1[mirrored_address - 0xC000];
+        } else if (mirrored_address >= 0xD000 && mirrored_address <= 0xDFFF) { 
+            dataRet = WRAM_2[mirrored_address - 0xD000];
+        } 
     }
+    else if (address == 0xFF00) { //INPUT READ
+
+        uint8_t state = IO[0];
+        uint8_t output = state | 0xF;
+
+        // std::cout << "Polling Request (IO[0]): " << std::hex << +state << "\n";
+
+        if (!(state & 0x10)) { 
+            output &= (g_polled_actions | 0xF0); 
+        }
+        if (!(state & 0x10)) { 
+            output &= (g_polled_actions | 0xF0); 
+        }
+
+        // std::cout << "JOYP Result: " << std::hex << +dataRet << "\n";
+
+        dataRet = output | 0xC0;
+    } 
     else if (address >= 0xFF00 && address <= 0xFF7F) { //I/O registers
         dataRet = IO[address - 0xFF00];
     }

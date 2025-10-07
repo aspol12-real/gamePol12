@@ -14,22 +14,28 @@ const int GB_WIDTH = 160;
 const int GB_HEIGHT = 144;
 const int CELLSIZE = 4;
 
-const int screenWidth  = GB_WIDTH * CELLSIZE;
+const int screenMarginSides = 400;
+
+const int screenWidth  = GB_WIDTH * CELLSIZE + screenMarginSides;
 const int screenHeight = GB_HEIGHT * CELLSIZE;
 const int TARGET_CYCLES_PER_FRAME = 76000; 
+
+const int debugX = GB_WIDTH * CELLSIZE + 2;
 
 uint8_t buttons_pressed = 0;
 
 //(active high)
-uint8_t dpad_state = 0xFF;
-uint8_t buttons_state = 0xFF;
+uint8_t g_polled_actions = 0x0F;
+uint8_t g_polled_directions = 0x0F;
 
 bool dpad_enable = false;
 bool buttons_enable = false;
 bool run = false;
 bool debug = true;
 
+
 int peek_address = 0;
+
 
 std::array<Color, 4> palette1 = {{
     {244, 233, 205, 255},
@@ -39,7 +45,7 @@ std::array<Color, 4> palette1 = {{
 }};
 
 std::array<Color, 4> palette2 = {{
-    {161, 204, 165, 255},
+    {191, 234, 195, 255},
     {112, 151, 117, 255},
     {65, 93, 67, 255},
     {17, 29, 19, 255}
@@ -59,10 +65,11 @@ std::array<Color, 4> palette4 = {{
     {0, 0, 0, 255}
 }};
 
-std::array<Color, 4> current_Pallete = palette1;
+std::array<Color, 4> current_Pallete = palette2;
 
 void render_screen(ppu& graphics);
-void draw_debug_overlay(cpu& gb);
+void draw_debug_overlay(cpu& gb, Font customfont);
+void draw_tilemap_viewer(cpu& gb, int startX, int startY);
 
 int main(int argc, char *argv[]){
 
@@ -72,6 +79,10 @@ int main(int argc, char *argv[]){
     }
 
     InitWindow(screenWidth, screenHeight, "GB");
+
+    Font customfont = LoadFont("fonts/JetBrainsMono-Bold.ttf");
+    Image icon = LoadImage("src/icon.png"); 
+    SetWindowIcon(icon);
     SetTargetFPS(60);
 
     cpu gb;
@@ -82,30 +93,17 @@ int main(int argc, char *argv[]){
 
     while (!WindowShouldClose()) {
 
-        buttons_pressed = 0;
 
-        //get gameboy keypad input
-        uint8_t keystate = gb.rd(0xFF00) & 0b01100000;
-        
-        if (keystate == 0x10) {
-            dpad_enable = true;
-            buttons_enable = false;
-        } else if (keystate == 0x20) {
-            dpad_enable = false;
-            buttons_enable = true;
-        }
+        if (IsKeyDown(KEY_Z)) g_polled_actions &= ~0x01; 
+        if (IsKeyDown(KEY_X)) g_polled_actions &= ~0x02; 
+        if (IsKeyDown(KEY_SPACE)) g_polled_actions &= ~0x04; 
+        if (IsKeyDown(KEY_ENTER)) g_polled_actions &= ~0x08; 
 
+        if (IsKeyDown(KEY_RIGHT)) g_polled_directions &= ~0x01; 
+        if (IsKeyDown(KEY_LEFT)) g_polled_directions &= ~0x02;
+        if (IsKeyDown(KEY_UP)) g_polled_directions &= ~0x04; 
+        if (IsKeyDown(KEY_DOWN)) g_polled_directions &= ~0x08;
 
-
-        if(buttons_enable) {
-            buttons_pressed |= 0b00100000; 
-        } else if (dpad_enable) {
-            buttons_pressed |= 0b00010000;   
-        } else {
-            buttons_pressed = 0xFF;
-        }
-
-        gb.ld(buttons_pressed, 0xFF00);
 
         if(run) {
             if (IsKeyPressed(KEY_W)) {
@@ -164,15 +162,21 @@ int main(int argc, char *argv[]){
 
         //rendering!
 
-        ClearBackground(BLACK);
+        BeginDrawing();
+        ClearBackground({13, 12, 36, 255});
 
         if (gb.rd(0xFF40) & 0x80) {
             render_screen(gb.graphics);
         }
 
-
-        if(debug) { 
-            draw_debug_overlay(gb);
+        if (debug) {draw_debug_overlay(gb, customfont);
+        } else {
+            
+            uint8_t stat_mode = gb.rd(0xFF41) & 0b11;
+    
+            if (!gb.graphics.vramRestrict) { 
+                draw_tilemap_viewer(gb, debugX, 0);
+            }
         }
 
         EndDrawing();
@@ -200,25 +204,65 @@ void render_screen(ppu& graphics) {
     }
 }
 
-void draw_debug_overlay(cpu& gb) {
-    DrawText(TextFormat("AF: %04x", gb.AF), 0, 0, 20, RED);
-    DrawText(TextFormat("BC: %04x", gb.BC), 0, 30, 20, RED);
-    DrawText(TextFormat("DE: %04x", gb.DE), 0, 60, 20, RED);
-    DrawText(TextFormat("HL: %04x", gb.HL), 0, 90, 20, RED);
-    DrawText(TextFormat("SP: %04x", gb.SP), 0, 120, 20, RED);
-    DrawText(TextFormat("OPCODE: %02x", gb.opcode), 0, 150, 20, RED);
-    DrawText(TextFormat("PC: %04x", gb.PC), 0, 180, 20, RED);
-    DrawText(TextFormat("ZF: %d", gb.get_ZF()), 0, 210, 20, RED);
-    DrawText(TextFormat("NF: %d", gb.get_NF()), 0, 240, 20, RED);
-    DrawText(TextFormat("HF: %d", gb.get_HF()), 0, 270, 20, RED);
-    DrawText(TextFormat("CF: %d", gb.get_CF()), 0, 300, 20, RED);
-    DrawText(TextFormat("cycles: %d", gb.cycles), 0, 330, 20, RED);
-    DrawText(TextFormat("LCDC: %04x", gb.rd(0xFF40)), 0, 360, 20, RED);
-    DrawText(TextFormat("SCY: %04x", gb.rd(0xFF42)), 0, 390, 20, RED);
-    DrawText(TextFormat("SCX: %04x", gb.rd(0xFF43)), 0, 420, 20, RED);
-    DrawText(TextFormat("LY: %04x", gb.rd(0xFF44)), 0, 450, 20, RED);
-    DrawText(TextFormat("[HL]: %02x, [BC]: %02x", gb.rd(gb.HL), gb.rd(gb.BC)), 0, 480, 20, RED);
-    DrawText(TextFormat("[0xFFE1]: %04x", gb.rd(0xFFE1)), 0, 510, 20, RED);
-    DrawText(TextFormat("INTERRUPT: %04x", gb.mem.interrupts), 0, 540, 20, RED);
+void draw_debug_overlay(cpu& gb, Font customfont) {
+
+    DrawTextEx(customfont, TextFormat("AF: %04x, BC: %04x", gb.AF, gb.BC), {debugX, 0}, 32.0, 2.0, GREEN);
+    DrawTextEx(customfont, TextFormat("DE: %04x, HL: %04x", gb.DE, gb.HL), {debugX, 30}, 32.0, 2.0, GREEN);
+    DrawTextEx(customfont, TextFormat("SP: %04x, PC: %04x", gb.SP, gb.PC), {debugX, 60}, 32.0, 2.0, GREEN);
+    DrawTextEx(customfont, TextFormat("OPCODE: %02x", gb.opcode), {debugX,90}, 32.0, 2.0, GREEN);
+    DrawTextEx(customfont, TextFormat("FLAGS: %d, %d, %d, %d", gb.get_ZF(), gb.get_NF(), gb.get_HF(), gb.get_CF()), {debugX, 120}, 32.0, 2.0, GREEN);
+    DrawTextEx(customfont, TextFormat("CYCLES: %d", gb.cycles), {debugX,150}, 32.0, 2.0, GREEN);
+    DrawTextEx(customfont, TextFormat("[HL]: %02x, [BC]: %02x", gb.rd(gb.HL), gb.rd(gb.BC)), {debugX,180}, 32.0, 2.0, GREEN);
+    DrawTextEx(customfont, TextFormat("LCDC: %02x, LY: %02x", gb.rd(0xFF40), gb.rd(0xFF44)), {debugX,210}, 32.0, 2.0, GREEN);
+    DrawTextEx(customfont, TextFormat("SCX: %02x, SCY: %02x", gb.rd(0xFF42), gb.rd(0xFF43)), {debugX,240}, 32.0, 2.0, GREEN);
+    DrawTextEx(customfont, TextFormat("IF: %02x, KEYPAD: %02x", gb.mem.interrupts, gb.rd(0xFF00)), {debugX,270}, 32.0, 2.0, GREEN);
+
 }
 
+void draw_tilemap_viewer(cpu& gb, int startX, int startY) {
+    const uint16_t TILE_DATA_START = 0x8000;
+    const uint16_t TILE_DATA_END = 0x97FF;
+    const int TILE_BYTES = 16;
+    const int TILE_SIZE_PXL = 2; 
+    const int GB_TILE_DIM = 8; 
+
+    const int TILES_PER_ROW = 16;
+    const int TILE_SPACING = 2;
+    const int TILE_WIDTH_SCREEN = GB_TILE_DIM * TILE_SIZE_PXL;
+
+    int tileCount = 0;
+    int currentY = startY;
+
+    for (uint16_t addr = TILE_DATA_START; addr <= TILE_DATA_END; addr += TILE_BYTES) {
+        
+        int tileX = tileCount % TILES_PER_ROW;
+        int tileY = tileCount / TILES_PER_ROW;
+
+        int screenX = startX + (tileX * (TILE_WIDTH_SCREEN + TILE_SPACING));
+        int screenY = currentY + (tileY * (TILE_WIDTH_SCREEN + TILE_SPACING));
+        
+
+        for (int y = 0; y < GB_TILE_DIM; y++) {
+
+
+            uint8_t byte1 = gb.rd(addr + (y * 2));     // low byte
+            uint8_t byte2 = gb.rd(addr + (y * 2) + 1); // high byte
+
+            for (int x = 0; x < GB_TILE_DIM; x++) {
+
+                int bitIndex = 7 - x;
+
+
+                uint8_t color_index = 
+                    ((byte2 >> bitIndex) & 0b1) << 1 |
+                    ((byte1 >> bitIndex) & 0b1);
+                
+                Color pixel_color = current_Pallete[color_index];
+
+                DrawRectangle(screenX + x * TILE_SIZE_PXL, screenY + y * TILE_SIZE_PXL, TILE_SIZE_PXL, TILE_SIZE_PXL, pixel_color);
+            }
+        }
+
+        tileCount++;
+    }
+}

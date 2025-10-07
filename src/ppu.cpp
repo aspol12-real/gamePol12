@@ -81,7 +81,7 @@ void ppu::renderPixel() {
         uint8_t SCX = mem->rd(0xFF43);
         
         uint16_t bg_map_addr = 0x9800; // Default BG map
-        if (mem->rd(0xFF40) & 0x08 || mem->rd(0xFF40) & 64) bg_map_addr = 0x9C00; // Alternate map
+        if (mem->rd(0xFF40) & 0x08) bg_map_addr = 0x9C00; // Alternate map
         
         uint8_t tile_y = (LY + SCY) & 0xFF;
         uint8_t tile_x = (x + SCX) & 0xFF;

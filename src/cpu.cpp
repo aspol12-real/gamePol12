@@ -7,7 +7,7 @@
 
 void cpu::initialize(std::string rom) {
     
-    PC = 0x0;
+    PC = 0x100;
     SP = 0xFFFE;
     std::ifstream file;
     file.open(rom, std::ios::in | std::ios::binary);
@@ -43,7 +43,7 @@ void cpu::initialize(std::string rom) {
 
     file.close();
 
-    ld(0x80, 0xFF40); //LCDC
+    ld(0x0, 0xFF40); //LCDC
     ld(0xFF, 0xFF00);
 
     ld(0b10000000, 0xFF02); //SERIAL PORT DISABLED
@@ -358,17 +358,7 @@ int cpu::execute() {
         //ILLEGAL OPCODE 0xFC
         //ILLEGAL OPCODE 0xFD
         case 0xFE: CP(get_A(), n8); PC += 2; cycles = 8; break;
-        case 0xFF:
-            PUSH(PC + 1);
-            PC = 0x38;
-            cycles = 16;
-
-            std::cout << "RST $38 hit! PC=" << std::hex << PC 
-              << " SP=" << SP << " A=" << +get_A() 
-              << " F=" << +get_F() << " BC=" << BC 
-              << " DE=" << DE << " HL=" << HL << " OPCODE = " << +opcode << " LCDC = " << +rd(0xFF40) << "\n";
-              exit( 1 );
-            break; // RST $38
+        case 0xFF: PUSH(PC + 1); PC = 0x38; cycles = 16; exit( 1 );
 
         default:
             std::cout << "UNKNOWN OPCODE: " << std::hex << +opcode << "\n";
@@ -393,6 +383,7 @@ int cpu::execute() {
                     PUSH(PC); 
                     PC = 0x0040 | (i * 0x8);
                     cycles += 20;
+                    break;
                 }    
             }
         }
