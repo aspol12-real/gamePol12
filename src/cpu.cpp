@@ -7,7 +7,7 @@
 
 void cpu::initialize(std::string rom) {
     
-    PC = 0x100;
+    PC = 0x0;
     SP = 0xFFFE;
     std::ifstream file;
     file.open(rom, std::ios::in | std::ios::binary);
@@ -81,7 +81,7 @@ int cpu::execute() {
         case 0x05: set_B(DEC(get_B())); PC++; cycles = 4; break; //DEC B
         case 0x06: set_B(n8); PC += 2; cycles = 8; break;
         case 0x07: set_A(RLC(get_A())); set_ZF(false); PC++; cycles = 4; break;
-        case 0x08: ld(SP, n16); PC += 3; cycles = 20; break;
+        case 0x08: ld(SP & 0xFF, n16); ld(SP >> 8, n16 + 1); PC += 3; cycles = 20; break;
         case 0x09: HL = ADD16(HL , BC); PC++; cycles = 8; break;
         case 0x0A: set_A(rd(BC)); PC++; cycles = 8; break;
         case 0x0B: dec_BC(); PC++; cycles = 8; break;
@@ -116,7 +116,7 @@ int cpu::execute() {
         case 0x24: set_H(INC(get_H())); PC++; cycles = 4; break;
         case 0x25: set_H(DEC(get_H())); PC++; cycles = 4; break;
         case 0x26: set_H(n8); PC += 2; cycles = 8; break;
-        //missing 0x27 DAA
+        case 0x27: DAA(); PC += 2; cycles = 4; break;
         case 0x28: if((get_ZF()) == 1){PC += 2 + e8; cycles = 12;} else { PC += 2; cycles = 8;}; break;
         case 0x29: HL = ADD16(HL, HL); PC++; cycles = 8; break;
         case 0x2A: set_A(rd(HL)); inc_HL(); PC++; cycles = 8; break;
@@ -260,7 +260,7 @@ int cpu::execute() {
         case 0xA4: set_A(AND(get_A(), get_H())); PC++; cycles = 4; break;
         case 0xA5: set_A(AND(get_A(), get_L())); PC++; cycles = 4; break;
         case 0xA6: set_A(AND(get_A(), rd(HL))); PC++; cycles = 8; break;
-        case 0xA7: set_A(AND(get_A(), get_L())); PC++; cycles = 4; break;
+        case 0xA7: set_A(AND(get_A(), get_A())); PC++; cycles = 4; break;
         case 0xA8: set_A(XOR(get_A(), get_B())); PC++; cycles = 4; break;
         case 0xA9: set_A(XOR(get_A(), get_C())); PC++; cycles = 4; break;
         case 0xAA: set_A(XOR(get_A(), get_D())); PC++; cycles = 4; break;
@@ -278,7 +278,7 @@ int cpu::execute() {
         case 0xB4: set_A(OR(get_A(), get_H())); PC++; cycles = 4; break;
         case 0xB5: set_A(OR(get_A(), get_L())); PC++; cycles = 4; break;
         case 0xB6: set_A(OR(get_A(), rd(HL))); PC++; cycles = 8; break;
-        case 0xB7: set_A(OR(get_A(), get_L())); PC++; cycles = 4; break;
+        case 0xB7: set_A(OR(get_A(), get_A())); PC++; cycles = 4; break;
         case 0xB8: CP(get_A(), get_B()); PC++; cycles = 4; break;
         case 0xB9: CP(get_A(), get_C()); PC++; cycles = 4; break;
         case 0xBA: CP(get_A(), get_D()); PC++; cycles = 4; break;
@@ -300,14 +300,14 @@ int cpu::execute() {
         case 0xC8: if(get_ZF() == 1) {POP(PC); cycles = 20;} else {PC++; cycles = 8;}; break;
         case 0xC9: POP(PC); cycles = 16; break; //return from subroutine
         case 0xCA: if(get_ZF() == 1) {PC = n16; cycles = 16;} else {PC += 3; cycles = 12;}; break;
-        case 0xCB: PREFIXED(opcode); PC += 2; break;
+        case 0xCB: PREFIXED(); PC += 2; break;
         case 0xCC: if(get_ZF() == 1) {PUSH(PC + 3); PC = n16; cycles = 24;} else {PC += 3; cycles = 12;}; break;
         case 0xCD: PUSH(PC + 3); PC = n16; cycles = 24; break;  
         case 0xCE: ADC(n8); PC += 2; cycles = 8; break;
         case 0xCF: PUSH(PC + 1); PC = 0x08; cycles = 16; break; // RST $08
 
 
-        case 0xD0: if(get_ZF() == 0) {POP(PC); cycles = 20;} else {PC++; cycles = 8;}; break;
+        case 0xD0: if(get_CF() == 0) {POP(PC); cycles = 20;} else {PC++; cycles = 8;}; break;
         case 0xD1: POP(DE); PC++; cycles = 12; break;
         case 0xD2: if(get_CF() == 0) {PC = n16; cycles = 16;} else {PC += 3; cycles = 12;}; break;
         //ILLEGAL OPCODE 0xD3
@@ -345,7 +345,7 @@ int cpu::execute() {
 
         case 0xF0: set_A(rd(a8)); PC += 2; cycles = 12; break;
         case 0xF1: POP_AF(); PC++; cycles = 16; break;
-        case 0xF2: set_A(rd(get_C())); PC++; cycles = 8; break;
+        case 0xF2: set_A(rd(0xFF00 + get_C())); PC++; cycles = 8; break;
         case 0xF3: disable_pending = true; PC++; cycles = 4; break;
         //ILLEGAL OPCODE 0xF4
         case 0xF5: PUSH_AF(); PC++; cycles = 16; break;
@@ -358,7 +358,7 @@ int cpu::execute() {
         //ILLEGAL OPCODE 0xFC
         //ILLEGAL OPCODE 0xFD
         case 0xFE: CP(get_A(), n8); PC += 2; cycles = 8; break;
-        case 0xFF: PUSH(PC + 1); PC = 0x38; cycles = 16; exit( 1 );
+        case 0xFF: PUSH(PC + 1); PC = 0x38; cycles = 16; break;
 
         default:
             std::cout << "UNKNOWN OPCODE: " << std::hex << +opcode << "\n";
@@ -401,13 +401,44 @@ int cpu::execute() {
     return cycles;
 }
 
-void cpu::PREFIXED(uint8_t opcode) {
+void cpu::PREFIXED() {
     switch (rd(PC + 1)) {
+
+        case 0x00: set_B(RLC(get_B())); cycles = 12; break;
+        case 0x01: set_C(RLC(get_C())); cycles = 12; break;
+        case 0x02: set_D(RLC(get_D())); cycles = 12; break;
+        case 0x03: set_E(RLC(get_E())); cycles = 12; break;
+        case 0x04: set_H(RLC(get_H())); cycles = 12; break;
+        case 0x05: set_L(RLC(get_L())); cycles = 12; break;
+        case 0x06: ld(RLC(rd(HL)), HL); cycles = 20; break;
+        case 0x07: set_A(RLC(get_A())); cycles = 12; break;
+        case 0x08: set_B(RRC(get_B())); cycles = 12; break;
+        case 0x09: set_C(RRC(get_C())); cycles = 12; break;
+        case 0x0A: set_D(RRC(get_D())); cycles = 12; break;
+        case 0x0B: set_E(RRC(get_E())); cycles = 12; break;
+        case 0x0C: set_H(RRC(get_H())); cycles = 12; break;
+        case 0x0D: set_L(RRC(get_L())); cycles = 12; break;
+        case 0x0E: ld(RRC(rd(HL)), HL); cycles = 20; break;
+        case 0x0F: set_A(RRC(get_A())); cycles = 12; break;
+
 
         case 0x10: set_B(RL(get_B())); cycles = 12; break;
         case 0x11: set_C(RL(get_C())); cycles = 12; break;
         case 0x12: set_D(RL(get_D())); cycles = 12; break;
         case 0x13: set_E(RL(get_E())); cycles = 12; break;
+        case 0x14: set_B(RL(get_H())); cycles = 12; break;
+        case 0x15: set_C(RL(get_L())); cycles = 12; break;
+        case 0x16: ld(RL(rd(HL)), HL); cycles = 20; break;
+        case 0x17: set_A(RL(get_A())); cycles = 12; break;
+        case 0x18: set_B(RR(get_B())); cycles = 12; break;
+        case 0x19: set_C(RR(get_C())); cycles = 12; break;
+        case 0x1A: set_D(RR(get_D())); cycles = 12; break;
+        case 0x1B: set_E(RR(get_E())); cycles = 12; break;
+        case 0x1C: set_B(RR(get_H())); cycles = 12; break;
+        case 0x1D: set_C(RR(get_L())); cycles = 12; break;
+        case 0x1E: ld(RL(rd(HL)), HL); cycles = 20; break;
+        case 0x1F: set_A(RR(get_A())); cycles = 12; break;
+
 
         case 0x30: set_B(SWAP(get_B())); cycles = 12; break;
         case 0x31: set_C(SWAP(get_C())); cycles = 12; break;
@@ -617,26 +648,26 @@ void cpu::PREFIXED(uint8_t opcode) {
         case 0xEF: set_A(SET(5, get_A())); cycles = 12; break;
 
 
-        case 0xF0: set_B(SET(6, get_B())); cycles = 12; break;
-        case 0xF1: set_C(SET(6, get_C())); cycles = 12; break;
-        case 0xF2: set_D(SET(6, get_D())); cycles = 12; break;
-        case 0xF3: set_E(SET(6, get_E())); cycles = 12; break;
-        case 0xF4: set_H(SET(6, get_H())); cycles = 12; break;
-        case 0xF5: set_L(SET(6, get_L())); cycles = 12; break;
+        case 0xF0: set_B(SET(6, get_B())); cycles = 8; break;
+        case 0xF1: set_C(SET(6, get_C())); cycles = 8; break;
+        case 0xF2: set_D(SET(6, get_D())); cycles = 8; break;
+        case 0xF3: set_E(SET(6, get_E())); cycles = 8; break;
+        case 0xF4: set_H(SET(6, get_H())); cycles = 8; break;
+        case 0xF5: set_L(SET(6, get_L())); cycles = 8; break;
         case 0xF6: ld(SET(6, rd(HL)), HL); cycles = 16; break; 
-        case 0xF7: set_A(SET(6, get_A())); cycles = 12; break;
-        case 0xF8: set_B(SET(7, get_B())); cycles = 12; break;
-        case 0xF9: set_C(SET(7, get_C())); cycles = 12; break;
-        case 0xFA: set_D(SET(7, get_D())); cycles = 12; break;
-        case 0xFB: set_E(SET(7, get_E())); cycles = 12; break;
-        case 0xFC: set_H(SET(7, get_H())); cycles = 12; break;
-        case 0xFD: set_L(SET(7, get_L())); cycles = 12; break;
+        case 0xF7: set_A(SET(6, get_A())); cycles = 8; break;
+        case 0xF8: set_B(SET(7, get_B())); cycles = 8; break;
+        case 0xF9: set_C(SET(7, get_C())); cycles = 8; break;
+        case 0xFA: set_D(SET(7, get_D())); cycles = 8; break;
+        case 0xFB: set_E(SET(7, get_E())); cycles = 8; break;
+        case 0xFC: set_H(SET(7, get_H())); cycles = 8; break;
+        case 0xFD: set_L(SET(7, get_L())); cycles = 8; break;
         case 0xFE: ld(SET(7, rd(HL)), HL); cycles = 16; break; 
-        case 0xFF: set_A(SET(7, get_A())); cycles = 12; break;
+        case 0xFF: set_A(SET(7, get_A())); cycles = 8; break;
 
 
         default:
-            std::cout << "UNKNOWN PREFIXED OPCODE!! " << +rd(PC + 1) << "\n";
+            // std::cout << "UNKNOWN PREFIXED OPCODE!! " << +rd(PC) << "\n";
             break;
     }
 }
@@ -674,8 +705,11 @@ uint8_t cpu::XOR(uint8_t a, uint8_t b) {
 void cpu::BIT(int bit, uint8_t reg) {
     uint8_t result = (reg >> bit) & 0x1;
 
-    uint8_t flags = 0;
+    uint8_t flags = get_F();
+    flags &= ~nf;
     flags |= hf;
+
+    flags &= ~zf; 
 
     if (result == 0) {
         flags |= zf;
@@ -691,13 +725,17 @@ void cpu::PUSH(uint16_t addr) {
 }
 
 void cpu::PUSH_AF() {
+
+    uint8_t flags = (get_ZF() << 7) | (get_NF() << 6) | (get_HF() << 5) | (get_CF() << 4);
+
     SP--;
     ld(get_A(), SP);
     SP--;
-    ld((get_ZF() << 7) | (get_NF() << 6) | (get_HF() << 5) | (get_CF() << 4), SP);
+    ld(flags & 0xF0, SP);
 }
 
 void cpu::POP_AF() {
+
     uint8_t lowByte = rd(SP);
 
     set_ZF((lowByte >> 7) & 0x1);
@@ -735,7 +773,7 @@ uint8_t cpu::RL(uint8_t byte) {
 
 uint8_t cpu::RR(uint8_t byte) {
     uint8_t carryBit = (get_F() & cf) << 3;
-    uint8_t carryFlag = (byte << 4) & cf;
+    uint8_t carryFlag = byte & 0x1;
     uint8_t resultByte = (byte >> 1) | carryBit;
     
     set_ZF(resultByte == 0);
@@ -774,19 +812,24 @@ uint8_t cpu::RRC(uint8_t byte) {
 
 uint8_t cpu::INC(uint8_t byte) {
 
-    set_ZF((byte + 1) == 0);
-    set_NF(false);
+    uint8_t result = byte + 1;
 
-    return byte + 1;
+    set_ZF(result == 0);
+    set_NF(false);
+    set_HF((byte & 0x0F) == 0x0F);
+
+    return result;
 }
 
 uint8_t cpu::DEC(uint8_t byte) {
 
-    set_ZF((byte - 1) == 0);
-    set_HF((byte & 0x0F) == 0x00); 
-    set_NF(true);
+    uint8_t result = byte - 1;
 
-    return byte - 1;
+    set_ZF(result == 0);
+    set_NF(true);
+    set_HF((byte & 0x0F) == 0x00); 
+
+    return result;
 }
 
 void cpu::CP(uint8_t a, uint8_t b) {
@@ -799,24 +842,27 @@ void cpu::CP(uint8_t a, uint8_t b) {
 }
 
 void cpu::ADD8(uint8_t byte) {
+
     uint8_t result = get_A() + byte;
+    uint8_t original_A = get_A(); 
     set_A(result);
 
     set_ZF(result == 0);
     set_NF(false);
-    set_HF(((get_A() & 0x0F) + (byte & 0x0F)) > 0x0F);  // Half-carry
+    set_HF(((original_A & 0x0F) + (byte & 0x0F)) > 0x0F);  // Half-carry
     set_CF(result > 0xFF);    
 }
 
 void cpu::ADC(uint8_t byte) {
 
+    uint8_t original_A = get_A(); 
     uint16_t result16 = get_A() + byte + get_CF();
     uint8_t result = static_cast<uint8_t>(result16);
     set_A(result);
 
     set_ZF(result == 0);
     set_NF(false);
-    set_HF(((get_A() & 0x0F) + (byte & 0x0F) + get_CF()) > 0x0F);
+    set_HF(((original_A & 0x0F) + (byte & 0x0F) + get_CF()) > 0x0F);
     set_CF(result16 > 0xFF);
 
 }
@@ -977,7 +1023,7 @@ uint8_t cpu::SET(uint8_t bit, uint8_t reg) {
             break;
         case 7:
 
-            return reg | 0b100000000;
+            return reg | 0b10000000;
 
             break;
         default:
@@ -986,4 +1032,33 @@ uint8_t cpu::SET(uint8_t bit, uint8_t reg) {
             break;  
 
     }
+}
+
+void cpu::DAA() {
+    uint16_t a = get_A();
+    uint16_t correction = 0;
+    bool carry_flag_before = get_CF(); 
+
+    if (get_HF() || ((a & 0x0F) > 9)) {
+        correction = 0x06;
+    }
+
+    if (carry_flag_before || (a > 0x99)) {
+        correction |= 0x60;
+        set_CF(true); 
+    } else {
+        set_CF(false); 
+    }
+
+
+    if (get_NF()) {
+        a -= correction;
+    } else {
+        a += correction;
+    }
+
+    set_A(a & 0xFF);
+    set_ZF(get_A() == 0);
+    set_HF(false); 
+
 }

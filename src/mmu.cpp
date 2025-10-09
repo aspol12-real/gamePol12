@@ -33,19 +33,33 @@ void mmu::ld(uint8_t data, uint16_t address) {
             WRAM_2[mirrored_address - 0xD000] = data;
         } 
     }
-    else if (address == 0xFF50) {
-        if (data == 0x01) {
-            bootRomEnabled = false; 
-        }
-    }
     else if (address == 0xFF00) {
         //only write to high nibble
 
-        std::cout << "I WANT TO WRITE " << std::hex << +data << "\n";
+        //std::cout << "I WANT TO WRITE " << std::hex << +data << "\n";
         uint8_t temp = IO[0] & 0x0F;
         data |= temp;
         IO[0] = data | 0xC0;
 
+    }
+    else if (address == 0xFF01) {
+        IO[1] = data;
+    }
+    else if (address == 0xFF02) {
+        IO[2] = data;
+
+        if (data & 0x80) {
+
+            std::cout << (char)IO[1]; 
+
+            IO[2] &= ~0x80; 
+            IO[0x0F] |= 0x08;
+        }
+    }
+    else if (address == 0xFF50) {
+        if (data == 0x01) {
+            bootRomEnabled = false; 
+        }
     }
     else if (address >= 0xFF00 && address <= 0xFF7F) { //I/O registers
         IO[address - 0xFF00] = data;
@@ -101,9 +115,11 @@ uint8_t  mmu::rd(uint16_t address) {
 
         if (!(state & 0x10)) { 
             output &= (g_polled_actions | 0xF0); 
+            //std::cout << +g_polled_actions << "\n";
         }
-        if (!(state & 0x10)) { 
-            output &= (g_polled_actions | 0xF0); 
+        if (!(state & 0x20)) { 
+            output &= (g_polled_directions | 0xF0); 
+            //std::cout << +g_polled_directions << "\n";
         }
 
         // std::cout << "JOYP Result: " << std::hex << +dataRet << "\n";

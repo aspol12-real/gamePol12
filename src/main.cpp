@@ -30,6 +30,7 @@ uint8_t g_polled_directions = 0x0F;
 
 bool dpad_enable = false;
 bool buttons_enable = false;
+
 bool run = false;
 bool debug = true;
 
@@ -93,10 +94,12 @@ int main(int argc, char *argv[]){
 
     while (!WindowShouldClose()) {
 
+        g_polled_actions = 0x0F;
+        g_polled_directions = 0x0F;
 
         if (IsKeyDown(KEY_Z)) g_polled_actions &= ~0x01; 
         if (IsKeyDown(KEY_X)) g_polled_actions &= ~0x02; 
-        if (IsKeyDown(KEY_SPACE)) g_polled_actions &= ~0x04; 
+        if (IsKeyDown(KEY_RIGHT_SHIFT)) g_polled_actions &= ~0x04; 
         if (IsKeyDown(KEY_ENTER)) g_polled_actions &= ~0x08; 
 
         if (IsKeyDown(KEY_RIGHT)) g_polled_directions &= ~0x01; 
@@ -105,13 +108,13 @@ int main(int argc, char *argv[]){
         if (IsKeyDown(KEY_DOWN)) g_polled_directions &= ~0x08;
 
 
+
         if(run) {
             if (IsKeyPressed(KEY_W)) {
                 run = false;
             }
 
             int cycles_this_frame = 0;
-            
             while (cycles_this_frame < TARGET_CYCLES_PER_FRAME) {
                 int cycles_executed = gb.execute();
                 cycles_this_frame += cycles_executed;
@@ -123,6 +126,9 @@ int main(int argc, char *argv[]){
             }
             if (IsKeyPressed(KEY_S)) {
                 gb.execute();  
+                if (gb.halted){
+                    std::cout << "HALTED!\n";
+                }
             }
             if (IsKeyDown(KEY_D)) {
                 for (int i = 0; i < 100; i++) {

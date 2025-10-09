@@ -165,8 +165,9 @@ class cpu {
         uint8_t SET(uint8_t bit, uint8_t reg);
 
         //CB opcodes
-        void PREFIXED(uint8_t opcode);
+        void PREFIXED();
         void BIT(int bit, uint8_t reg);
+        void DAA();
 
         void PUSH_AF();
         void POP_AF();

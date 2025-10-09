@@ -79,14 +79,16 @@ void ppu::renderPixel() {
         // Fetch new tile every 8 pixels
         uint8_t SCY = mem->rd(0xFF42);
         uint8_t SCX = mem->rd(0xFF43);
+        uint8_t bgTileMap = mem->rd(0xFF40) & 0x08;
         
         uint16_t bg_map_addr = 0x9800; // Default BG map
-        if (mem->rd(0xFF40) & 0x08) bg_map_addr = 0x9C00; // Alternate map
+        if (bgTileMap != 0) bg_map_addr = 0x9C00; // Alternate map
         
-        uint8_t tile_y = (LY + SCY) & 0xFF;
-        uint8_t tile_x = (x + SCX) & 0xFF;
+        uint8_t tile_y = (LY + SCY);
+        uint8_t tile_x = (x + SCX);
         
         uint16_t tile_map_addr = bg_map_addr + ((tile_y / 8) * 32) + (tile_x / 8);
+        
         uint8_t tile_num = VRAM[tile_map_addr - 0x8000];
         
         // Get tile data
