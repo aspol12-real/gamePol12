@@ -87,6 +87,7 @@ void ppu::renderPixel() {
         uint8_t tile_y = (LY + SCY);
         uint8_t tile_x = (x + SCX);
         
+        
         uint16_t tile_map_addr = bg_map_addr + ((tile_y / 8) * 32) + (tile_x / 8);
         
         uint8_t tile_num = VRAM[tile_map_addr - 0x8000];
@@ -116,6 +117,8 @@ void ppu::renderPixel() {
 
         for (int i = 0; i < spritesFound; i++) {
         uint8_t sprite_X = spritebuffer[i * 4 + 1];
+
+        
         if ((sprite_X <= x) && (x < sprite_X + 8)) {
             uint8_t tile_num = spritebuffer[i * 4 + 2];
             uint8_t flags = spritebuffer[i * 4 + 3];

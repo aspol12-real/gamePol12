@@ -42,15 +42,12 @@ void mmu::ld(uint8_t data, uint16_t address) {
         IO[0] = data | 0xC0;
 
     }
-    else if (address == 0xFF01) {
-        IO[1] = data;
-    }
     else if (address == 0xFF02) {
         IO[2] = data;
 
         if (data & 0x80) {
 
-            std::cout << (char)IO[1]; 
+            // std::cout << (char)IO[1]; 
 
             IO[2] &= ~0x80; 
             IO[0x0F] |= 0x08;
@@ -109,22 +106,22 @@ uint8_t  mmu::rd(uint16_t address) {
     else if (address == 0xFF00) { //INPUT READ
 
         uint8_t state = IO[0];
-        uint8_t output = state | 0xF;
+        uint8_t output = state | 0x0F;
 
-        // std::cout << "Polling Request (IO[0]): " << std::hex << +state << "\n";
+        //std::cout << "Polling Request (IO[0]): " << std::hex << +state << "\n";
 
         if (!(state & 0x10)) { 
-            output &= (g_polled_actions | 0xF0); 
+            output &= g_polled_directions;
             //std::cout << +g_polled_actions << "\n";
         }
         if (!(state & 0x20)) { 
-            output &= (g_polled_directions | 0xF0); 
+            output &= g_polled_actions; 
             //std::cout << +g_polled_directions << "\n";
         }
 
-        // std::cout << "JOYP Result: " << std::hex << +dataRet << "\n";
-
         dataRet = output | 0xC0;
+        //std::cout << "JOYP Result: " << std::hex << +dataRet << "\n";
+
     } 
     else if (address >= 0xFF00 && address <= 0xFF7F) { //I/O registers
         dataRet = IO[address - 0xFF00];

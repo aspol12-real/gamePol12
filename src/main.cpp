@@ -108,7 +108,6 @@ int main(int argc, char *argv[]){
         if (IsKeyDown(KEY_DOWN)) g_polled_directions &= ~0x08;
 
 
-
         if(run) {
             if (IsKeyPressed(KEY_W)) {
                 run = false;
@@ -180,9 +179,7 @@ int main(int argc, char *argv[]){
             
             uint8_t stat_mode = gb.rd(0xFF41) & 0b11;
     
-            if (!gb.graphics.vramRestrict) { 
-                draw_tilemap_viewer(gb, debugX, 0);
-            }
+            draw_tilemap_viewer(gb, debugX, 0);
         }
 
         EndDrawing();
@@ -251,8 +248,8 @@ void draw_tilemap_viewer(cpu& gb, int startX, int startY) {
         for (int y = 0; y < GB_TILE_DIM; y++) {
 
 
-            uint8_t byte1 = gb.rd(addr + (y * 2));     // low byte
-            uint8_t byte2 = gb.rd(addr + (y * 2) + 1); // high byte
+            uint8_t byte1 = gb.graphics.VRAM[(addr + (y * 2)) - TILE_DATA_START];     // low byte
+            uint8_t byte2 = gb.graphics.VRAM[(addr + (y * 2) + 1) - TILE_DATA_START]; // high byte
 
             for (int x = 0; x < GB_TILE_DIM; x++) {
 

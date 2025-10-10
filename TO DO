@@ -3,10 +3,12 @@ short term:
 
 - implement joypad input
 - implement OAM DMA transfer
-- finish all opcodes (including prefixed)
-- stop tileset viewer flickering issue
 
-- get all blargg cpu test working
+- finish all opcodes (including prefixed)
+- get all blargg cpu tests working
+- make ppu work correctly, especially with rendering sprites
+- figure out why dr mario crashes now
+- figure out why tetris input is wonky
 
 long term:
 

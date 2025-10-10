@@ -26,7 +26,8 @@ class mmu {
         uint8_t IO[128];
         uint8_t interrupts = 0; 
 
-        //methods
+        uint8_t mapper = rd(0x147);
+
         void ld(uint8_t data, uint16_t address);
 
         uint8_t rd(uint16_t address);

@@ -48,6 +48,10 @@ void cpu::initialize(std::string rom) {
 
     ld(0b10000000, 0xFF02); //SERIAL PORT DISABLED
 
+    uint8_t mapper = rd(0x147);
+
+    std::cout << "MAPPER: " << std::hex << +mapper << "\n";
+
 }
 
 int cpu::execute() {
@@ -70,6 +74,7 @@ int cpu::execute() {
         enable_pending = false;
     }
     //decode
+
 
     switch(opcode) {
 
@@ -142,7 +147,7 @@ int cpu::execute() {
         case 0x3C: set_A(INC(get_A())); PC++; cycles = 4; break;
         case 0x3D: set_A(DEC(get_A())); PC++; cycles = 4; break;
         case 0x3E: set_A(n8); PC += 2; cycles = 8; break;
-        case 0x3F: set_CF(~get_CF()); set_NF(false); set_HF(false); PC++; cycles = 4; break; //CCF
+        case 0x3F: if(get_CF()){set_CF(false);} else {set_CF(true);}; set_NF(false); set_HF(false); PC++; cycles = 4; break; //CCF
         
 
         case 0x40: set_B(get_B()); PC++; cycles = 4; break;
@@ -320,7 +325,7 @@ int cpu::execute() {
         case 0xDA: if(get_CF() == 1) {PC = n16; cycles = 16;} else {PC += 3; cycles = 12;}; break;
         //ILLEGAL OPCODE 0xDB
         case 0xDC: if(get_CF() == 1) {PUSH(PC + 3); PC = n16; cycles = 24;} else {PC += 3; cycles = 12;}; break;
-        //ILLEGAL OPCODE 0xDE
+        //ILLEGAL OPCODE 0xDD
         case 0xDE: SBC(n8); PC += 2; cycles = 8; break;
         case 0xDF: PUSH(PC + 1); PC = 0x18; cycles = 16; break; // RST $18
 
@@ -365,6 +370,7 @@ int cpu::execute() {
             PC++;
     }
 
+
     if (IME) {
 
         uint8_t IE = rd(0xFFFF);
@@ -387,16 +393,11 @@ int cpu::execute() {
                 }    
             }
         }
+    } else if (!IME && (rd(0xFFFF) & rd(0xFF0F)) != 0) {
+        haltBug = true;
     }
 
-
-    //execute ppu for N cycles per cpu cycle only if LCD is on!
-    if (rd(0xFF40) & 0x80) {
-        for (int i = 0; i < cycles; i++) {
-            graphics.tick();
-        }
-    }
-
+    tick_peripherals(cycles);
 
     return cycles;
 }
@@ -426,18 +427,36 @@ void cpu::PREFIXED() {
         case 0x11: set_C(RL(get_C())); cycles = 12; break;
         case 0x12: set_D(RL(get_D())); cycles = 12; break;
         case 0x13: set_E(RL(get_E())); cycles = 12; break;
-        case 0x14: set_B(RL(get_H())); cycles = 12; break;
-        case 0x15: set_C(RL(get_L())); cycles = 12; break;
+        case 0x14: set_H(RL(get_H())); cycles = 12; break;
+        case 0x15: set_L(RL(get_L())); cycles = 12; break;
         case 0x16: ld(RL(rd(HL)), HL); cycles = 20; break;
         case 0x17: set_A(RL(get_A())); cycles = 12; break;
         case 0x18: set_B(RR(get_B())); cycles = 12; break;
         case 0x19: set_C(RR(get_C())); cycles = 12; break;
         case 0x1A: set_D(RR(get_D())); cycles = 12; break;
         case 0x1B: set_E(RR(get_E())); cycles = 12; break;
-        case 0x1C: set_B(RR(get_H())); cycles = 12; break;
-        case 0x1D: set_C(RR(get_L())); cycles = 12; break;
-        case 0x1E: ld(RL(rd(HL)), HL); cycles = 20; break;
+        case 0x1C: set_H(RR(get_H())); cycles = 12; break;
+        case 0x1D: set_L(RR(get_L())); cycles = 12; break;
+        case 0x1E: ld(RR(rd(HL)), HL); cycles = 20; break;
         case 0x1F: set_A(RR(get_A())); cycles = 12; break;
+
+
+        case 0x20: set_B(SLA(get_B())); cycles = 12; break;
+        case 0x21: set_C(SLA(get_C())); cycles = 12; break;
+        case 0x22: set_D(SLA(get_D())); cycles = 12; break;
+        case 0x23: set_E(SLA(get_E())); cycles = 12; break;
+        case 0x24: set_H(SLA(get_H())); cycles = 12; break;
+        case 0x25: set_L(SLA(get_L())); cycles = 12; break;
+        case 0x26: ld(SLA(rd(HL)), HL); cycles = 20; break;
+        case 0x27: set_A(SLA(get_A())); cycles = 12; break;
+        case 0x28: set_B(SRA(get_B())); cycles = 12; break;
+        case 0x29: set_C(SRA(get_C())); cycles = 12; break;
+        case 0x2A: set_D(SRA(get_D())); cycles = 12; break;
+        case 0x2B: set_E(SRA(get_E())); cycles = 12; break;
+        case 0x2C: set_H(SRA(get_H())); cycles = 12; break;
+        case 0x2D: set_L(SRA(get_L())); cycles = 12; break;
+        case 0x2E: ld(SRA(rd(HL)), HL); cycles = 20; break;
+        case 0x2F: set_A(SRA(get_A())); cycles = 12; break;
 
 
         case 0x30: set_B(SWAP(get_B())); cycles = 12; break;
@@ -446,8 +465,16 @@ void cpu::PREFIXED() {
         case 0x33: set_E(SWAP(get_E())); cycles = 12; break;
         case 0x34: set_H(SWAP(get_H())); cycles = 12; break;
         case 0x35: set_L(SWAP(get_L())); cycles = 12; break;
-        case 0x36: ld(SWAP(rd(HL)), HL); cycles = 16; break;
+        case 0x36: ld(SWAP(rd(HL)), HL); cycles = 20; break;
         case 0x37: set_A(SWAP(get_A())); cycles = 12; break;
+        case 0x38: set_B(SRL(get_B())); cycles = 12; break;
+        case 0x39: set_C(SRL(get_C())); cycles = 12; break;
+        case 0x3A: set_D(SRL(get_D())); cycles = 12; break;
+        case 0x3B: set_E(SRL(get_E())); cycles = 12; break;
+        case 0x3C: set_H(SRL(get_H())); cycles = 12; break;
+        case 0x3D: set_L(SRL(get_L())); cycles = 12; break;
+        case 0x3E: ld(SRL(rd(HL)), HL); cycles = 20; break;
+        case 0x3F: set_A(SRL(get_A())); cycles = 12; break;
 
 
         case 0x40: BIT(0, get_B()); cycles = 12; break;
@@ -674,10 +701,11 @@ void cpu::PREFIXED() {
 
 uint8_t cpu::AND(uint8_t a, uint8_t b) {
     uint8_t result = a & b;
+
     set_ZF(result == 0);
+    set_NF(false);
+    set_HF(true);
     set_CF(false);
-    set_NF(true);
-    set_HF(false);
 
     return result;
 }
@@ -810,6 +838,49 @@ uint8_t cpu::RRC(uint8_t byte) {
     return resultByte;
 }
 
+uint8_t cpu::SRL(uint8_t byte) {
+
+    uint8_t carryBit = byte & 0x1;
+    uint8_t result = byte >> 1;
+
+    set_ZF(result == 0);
+    set_NF(false);
+    set_HF(false);
+    set_CF(carryBit);
+
+    return result;
+}
+
+uint8_t cpu::SRA(uint8_t byte) {
+
+    uint8_t bit_7 = (byte >> 7) & 0x1;
+    uint8_t carryBit = byte & 0x1;
+    uint8_t result = byte >> 1;
+
+    result |= (bit_7 << 7);
+
+    set_ZF(result == 0);
+    set_NF(false);
+    set_HF(false);
+    set_CF(carryBit);
+
+    return result;
+}
+
+uint8_t cpu::SLA(uint8_t byte) {
+
+    uint8_t carryBit = (byte >> 7) & 0x1;
+    uint8_t result = byte << 1;
+
+    set_ZF(result == 0);
+    set_NF(false);
+    set_HF(false);
+    set_CF(carryBit);
+
+    return result;
+}
+
+
 uint8_t cpu::INC(uint8_t byte) {
 
     uint8_t result = byte + 1;
@@ -843,6 +914,7 @@ void cpu::CP(uint8_t a, uint8_t b) {
 
 void cpu::ADD8(uint8_t byte) {
 
+    uint16_t result16 = get_A() + byte;
     uint8_t result = get_A() + byte;
     uint8_t original_A = get_A(); 
     set_A(result);
@@ -850,7 +922,7 @@ void cpu::ADD8(uint8_t byte) {
     set_ZF(result == 0);
     set_NF(false);
     set_HF(((original_A & 0x0F) + (byte & 0x0F)) > 0x0F);  // Half-carry
-    set_CF(result > 0xFF);    
+    set_CF(result16 > 0xFF);    
 }
 
 void cpu::ADC(uint8_t byte) {
@@ -869,14 +941,29 @@ void cpu::ADC(uint8_t byte) {
 
 void cpu::SBC(uint8_t byte) {
 
-    uint8_t subtrahend = byte + get_CF();
-    uint8_t result = get_A() - subtrahend;
+    uint8_t original_A = get_A(); 
+    uint16_t subtrahend = byte + get_CF();
+    uint16_t wide_result = original_A - subtrahend;
+    uint8_t result = (uint8_t)wide_result; 
+
     set_A(result);
 
     set_ZF(result == 0);
     set_NF(true);
-    set_HF((get_A() & 0x0F) < (subtrahend & 0x0F));
-    set_CF((byte + get_CF()) > get_A());
+    set_HF((original_A & 0x0F) < ((byte & 0x0F) + get_CF())); 
+    set_CF(original_A < subtrahend);
+}
+
+void cpu::SUB(uint8_t byte) {
+
+    uint8_t original_A = get_A(); 
+    uint8_t result = get_A() - byte;
+    set_A(result);
+
+    set_ZF(result == 0);
+    set_NF(true);
+    set_HF((original_A & 0x0F) < (byte & 0x0F));
+    set_CF(byte > original_A);
 }
 
 uint16_t cpu::SPADD(uint8_t byte) {
@@ -905,15 +992,6 @@ uint32_t cpu::ADD16(uint16_t a, uint16_t b) {
     return result & 0xFFFF;
 }
 
-void cpu::SUB(uint8_t byte) {
-    uint8_t result = get_A() - byte;
-    set_A(result);
-
-    set_ZF(result == 0);
-    set_NF(true);
-    set_HF((get_A() & 0x0F) < (byte & 0x0F));
-    set_CF(byte > get_A());
-}
 
 uint8_t cpu::SWAP(uint8_t reg) {
 
@@ -1037,13 +1115,13 @@ uint8_t cpu::SET(uint8_t bit, uint8_t reg) {
 void cpu::DAA() {
     uint16_t a = get_A();
     uint16_t correction = 0;
-    bool carry_flag_before = get_CF(); 
+    bool carryFlag = get_CF(); 
 
     if (get_HF() || ((a & 0x0F) > 9)) {
         correction = 0x06;
     }
 
-    if (carry_flag_before || (a > 0x99)) {
+    if (carryFlag || (a > 0x99)) {
         correction |= 0x60;
         set_CF(true); 
     } else {
@@ -1060,5 +1138,54 @@ void cpu::DAA() {
     set_A(a & 0xFF);
     set_ZF(get_A() == 0);
     set_HF(false); 
+
+}
+
+
+//tick tock on the clock
+
+void cpu::tick_peripherals(int cycles) {
+
+    uint8_t TAC = rd(0xFF07);
+
+    if (TAC & 0x4) {
+
+        uint8_t TIMA = rd(0xFF05);
+
+        if ((TIMA) == 0xFF) { //TIMA overflow
+
+            ld(0, 0xFF05); //wrap to 0
+
+            uint8_t TMA = rd(0xFF06);
+            uint8_t interruptFlag = rd(0xFF0F);
+            interruptFlag |= 0x4;
+            ld(interruptFlag, 0xFF0F);
+
+            tma_reload_scheduled = true;
+            tma_reload_value = rd(0xFF06); 
+            tma_reload_cycles = 4; 
+
+        } else{
+            ld(TIMA + 1, 0xFF05);
+        }
+    }
+
+
+    if (tma_reload_scheduled) {
+        tma_reload_cycles -= cycles;
+        
+        if (tma_reload_cycles <= 0) {
+            ld(tma_reload_value, 0xFF05);
+            tma_reload_scheduled = false;
+        }
+    }
+
+
+    //execute ppu for N cycles per cpu cycle only if LCD is on!
+    if (rd(0xFF40) & 0x80) {
+        for (int i = 0; i < cycles; i++) {
+            graphics.tick();
+        }
+    }
 
 }

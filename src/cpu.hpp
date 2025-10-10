@@ -20,6 +20,7 @@ class cpu {
         bool disable_pending = false;
         bool stopped = false;
         bool halted  = false;
+        bool haltBug = false;
 
         const uint8_t zf   = 0b10000000; //Zero Flag
         const uint8_t nf   = 0b01000000; //Subtraction Flag
@@ -36,6 +37,10 @@ class cpu {
         uint8_t dataRet = 0;
         uint16_t PC = 0;
         uint16_t SP = 0xFFFE;
+
+        int tma_reload_cycles;
+        int tma_reload_value;
+        bool tma_reload_scheduled = false;
 
         //methods
         void initialize(std::string rom);
@@ -57,6 +62,20 @@ class cpu {
             } else if (address >= 0xFEA0 && address <= 0xFEFF) {
                 // std::cout << "NOT USABLE. PC = " << std::hex << +PC << " OPCODE = " << +opcode << " HL = " << +HL << "\n"; 
             } 
+            else if (address == 0xFF46) { //OAM DMA TRANSFER
+
+                // std::cout << "DMA\n";
+
+                uint16_t dma_addr_start = data << 8; // XX00
+
+                uint16_t dest_addr_start = 0xFE00;
+
+                for (int i = 0; i < 160; i++) {
+                    uint8_t byte = rd(dma_addr_start + i);
+                    ld(byte, dest_addr_start + i);
+                }
+                cycles = 160;
+            }
             else {
                 mem.ld(data, address);
             }
@@ -164,6 +183,10 @@ class cpu {
         uint8_t RES(uint8_t bit, uint8_t reg);
         uint8_t SET(uint8_t bit, uint8_t reg);
 
+        uint8_t SRA(uint8_t byte);
+        uint8_t SRL(uint8_t byte);
+        uint8_t SLA(uint8_t byte);
+
         //CB opcodes
         void PREFIXED();
         void BIT(int bit, uint8_t reg);
@@ -181,4 +204,6 @@ class cpu {
         uint8_t RRC(uint8_t byte);
 
         void CP(uint8_t a, uint8_t b);
+
+        void tick_peripherals(int cycles);
 };
