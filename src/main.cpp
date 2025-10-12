@@ -81,8 +81,8 @@ int main(int argc, char *argv[]){
 
     InitWindow(screenWidth, screenHeight, "GB");
 
-    Font customfont = LoadFont("fonts/JetBrainsMono-Bold.ttf");
-    Image icon = LoadImage("src/icon.png"); 
+    Font customfont = LoadFont("res/fonts/JetBrainsMono-Bold.ttf");
+    Image icon = LoadImage("res/icon.png"); 
     SetWindowIcon(icon);
     SetTargetFPS(60);
 

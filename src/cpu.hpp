@@ -190,6 +190,8 @@ class cpu {
         //CB opcodes
         void PREFIXED();
         void BIT(int bit, uint8_t reg);
+
+
         void DAA();
 
         void PUSH_AF();

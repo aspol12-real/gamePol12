@@ -121,7 +121,7 @@ int cpu::execute() {
         case 0x24: set_H(INC(get_H())); PC++; cycles = 4; break;
         case 0x25: set_H(DEC(get_H())); PC++; cycles = 4; break;
         case 0x26: set_H(n8); PC += 2; cycles = 8; break;
-        case 0x27: DAA(); PC += 2; cycles = 4; break;
+        case 0x27: DAA(); PC++; cycles = 4; break;
         case 0x28: if((get_ZF()) == 1){PC += 2 + e8; cycles = 12;} else { PC += 2; cycles = 8;}; break;
         case 0x29: HL = ADD16(HL, HL); PC++; cycles = 8; break;
         case 0x2A: set_A(rd(HL)); inc_HL(); PC++; cycles = 8; break;
@@ -1112,33 +1112,40 @@ uint8_t cpu::SET(uint8_t bit, uint8_t reg) {
     }
 }
 
+
 void cpu::DAA() {
-    uint16_t a = get_A();
-    uint16_t correction = 0;
-    bool carryFlag = get_CF(); 
+    uint8_t offset = 0;
+    uint8_t a = get_A();
+    uint8_t hf = get_HF();
+    uint8_t cf = get_CF();
+    uint8_t subtract = get_NF();
 
-    if (get_HF() || ((a & 0x0F) > 9)) {
-        correction = 0x06;
-    }
+    if (subtract == 0) {
 
-    if (carryFlag || (a > 0x99)) {
-        correction |= 0x60;
-        set_CF(true); 
+        if (((a & 0xF) > 0x9) || (hf > 0)) {
+            offset |= 0x6;
+        }
+        if ((a > 0x99) || (cf > 0)) {
+            offset |= 0x60;
+            set_CF(true);
+        } else {
+            set_CF(false);
+        }
+
+        a += offset;
+
     } else {
-        set_CF(false); 
+        if (hf != 0) {
+            offset |= 0x6;
+        }
+        if (cf != 0) {
+            offset |= 0x60;
+        }
+
+        a -= offset;
     }
 
-
-    if (get_NF()) {
-        a -= correction;
-    } else {
-        a += correction;
-    }
-
-    set_A(a & 0xFF);
-    set_ZF(get_A() == 0);
-    set_HF(false); 
-
+    set_A(a);
 }
 
 

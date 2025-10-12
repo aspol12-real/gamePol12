@@ -3,6 +3,9 @@ short term:
 
 - implement joypad input
 - implement OAM DMA transfer
+- implement DAA
+
+- figure out how to use the single step tests
 
 - finish all opcodes (including prefixed)
 - get all blargg cpu tests working
