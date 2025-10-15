@@ -16,7 +16,7 @@ short term:
 long term:
 
 
-- overhaul debugger to use a better gui method (maybe just imgui), and include a live memory viewer (?)
+- overhaul debugger to use a better gui method (RAYGUI!), and include a live memory viewer (?)
 - implement actual mapper functionality
 - implement APU
 
