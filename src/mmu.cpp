@@ -9,14 +9,21 @@ void mmu::ld(uint8_t data, uint16_t address) {
     if (address <= 0xFF) {
         return; //bootrom is read only
     }
-    else if (address >= 0 && address <= 0x3FFF) { //romBank 0
-        return; //never write
+    else if (address >= 0 && address <= 0x1FFF) { //romBank 0
+        ERAM_ENABLE = data;
     }
-    else if (address >= 0x4000 && address <= 0x7FFF) { //romBank 1-NN (depending on mapper)
+    else if (address >= 0x2000 && address <= 0x3FFF) { //switch rom bank number
+        rom_bank_number = data;
+    }
+    else if (address >= 0x4000 && address <= 0x7FFF) {
         return; //never write
     }
     else if (address >= 0xA000 && address <= 0xBFFF) { //External Cartridge Ram
-        cart.ERAM[address - 0xA000] = data;
+
+        if (ERAM_ENABLE == 0xA) {
+            cart.ERAM[address - 0xA000] = data;
+        }
+        
     }
     else if (address >= 0xC000 && address <= 0xCFFF) { //WRAM 1
         WRAM_1[address - 0xC000] = data;    
@@ -34,9 +41,7 @@ void mmu::ld(uint8_t data, uint16_t address) {
         } 
     }
     else if (address == 0xFF00) {
-        //only write to high nibble
 
-        //std::cout << "I WANT TO WRITE " << std::hex << +data << "\n";
         uint8_t temp = IO[0] & 0x0F;
         data |= temp;
         IO[0] = data | 0xC0;
@@ -46,8 +51,6 @@ void mmu::ld(uint8_t data, uint16_t address) {
         IO[2] = data;
 
         if (data & 0x80) {
-
-            // std::cout << (char)IO[1]; 
 
             IO[2] &= ~0x80; 
             IO[0x0F] |= 0x08;
@@ -66,7 +69,6 @@ void mmu::ld(uint8_t data, uint16_t address) {
     }
     else if (address == 0xFFFF) {
         interrupts = data;
-        // std::cout << "INTERRUPT REGISTER POKED WITH: " << std::hex << +data << "\n";
     }
     else {
         std::cout << "BAD POKE . ADDRESS: " << std::hex << +address << "\n";
@@ -79,10 +81,23 @@ uint8_t  mmu::rd(uint16_t address) {
         dataRet = bootRom[address];
     }
     else if (address >= 0 && address <= 0x3FFF) { //ROMBANK 0
-        dataRet = cart.romBank0[address]; 
+        dataRet = cart.romBank[address]; 
     }
-    else if (address >= 0x4000 && address <= 0x7FFF) { //ROMBANK 1
-        dataRet = cart.romBank1[address - 0x4000];
+    else if (address >= 0x4000 && address <= 0x7FFF) { //ROMBANK 1 (CHANGES DEPENDING ON MAPPER)
+        
+        uint8_t mapper = cart.romBank[0x147];
+
+        if (mapper != 0) {
+
+            uint8_t rom_bank_number_final = rom_bank_number & 0b00011111;
+
+            dataRet = cart.romBank[(address - 0x4000) + (rom_bank_number_final * 0x4000)];
+
+        } else {
+
+            dataRet = cart.romBank[address];
+        }
+
     }
     else if (address >= 0xA000 && address <= 0xBFFF) { //External Cartridge Ram
         dataRet = cart.ERAM[address - 0xA000];
@@ -108,19 +123,14 @@ uint8_t  mmu::rd(uint16_t address) {
         uint8_t state = IO[0];
         uint8_t output = state | 0x0F;
 
-        //std::cout << "Polling Request (IO[0]): " << std::hex << +state << "\n";
-
         if (!(state & 0x10)) { 
             output &= g_polled_directions;
-            //std::cout << +g_polled_actions << "\n";
         }
         if (!(state & 0x20)) { 
             output &= g_polled_actions; 
-            //std::cout << +g_polled_directions << "\n";
         }
 
         dataRet = output | 0xC0;
-        //std::cout << "JOYP Result: " << std::hex << +dataRet << "\n";
 
     } 
     else if (address >= 0xFF00 && address <= 0xFF7F) { //I/O registers
@@ -131,7 +141,6 @@ uint8_t  mmu::rd(uint16_t address) {
     }
     else if (address == 0xFFFF) {
         dataRet = interrupts;
-        //std::cout << "INTERRUPT REGISTER PEEKED! \n";
     }
     else {
         std::cout << "BAD PEEK . ADDRESS: " << std::hex << +address << "\n";

@@ -76,27 +76,106 @@ void ppu::tick() {
 
 void ppu::renderPixel() {
     if (x % 8 == 0) {
+
         // Fetch new tile every 8 pixels
         uint8_t SCY = mem->rd(0xFF42);
         uint8_t SCX = mem->rd(0xFF43);
-        uint8_t bgTileMap = mem->rd(0xFF40) & 0x08;
+
+        uint8_t WX  = mem->rd(0xFF4A);
+        uint8_t WY  = mem->rd(0xFF4B);
+
+        uint16_t tile_y = 0;
+        uint16_t tile_x = 0;
+
+        uint8_t wnTileMap            = mem->rd(0xFF40) & 0x40; // 01000000
+        uint8_t wnEnable             = mem->rd(0xFF40) & 0x20; // 00100000
+        uint8_t TilenumOffsetEnable  = mem->rd(0xFF40) & 0x10; // 00010000
+        uint8_t bgTileMap            = mem->rd(0xFF40) & 0x08; // 00001000
+        uint8_t objEnable            = mem->rd(0xFF40) & 0x02; // 00000010
         
-        uint16_t bg_map_addr = 0x9800; // Default BG map
-        if (bgTileMap != 0) bg_map_addr = 0x9C00; // Alternate map
+        uint16_t tile_num_offset = 0;
+
+        bool in_window = ((x >= WX - 7) && LY >= WY);
+
+        uint16_t first_map_addr = 0;
+
+        if (wnEnable && in_window) {
+
+            if (wnTileMap != 0) {
+                first_map_addr = 0x9C00;
+            } else {
+                first_map_addr = 0x9800;
+            }
+
+            tile_x = x;
+            tile_y = LY;
+
+        } else {
+
+            if (bgTileMap != 0) {
+                first_map_addr = 0x9C00;
+            } else {
+                first_map_addr = 0x9800;
+            }
+
+            tile_x = (x + SCX) / 8;
+            tile_y = ((LY + SCY) / 8) * 32;
+        }
         
-        uint8_t tile_y = (LY + SCY);
-        uint8_t tile_x = (x + SCX);
+    
+
+        // calculate VRAM address where tile number is stored for this tile
+
+        uint16_t tile_map_addr = first_map_addr + tile_y + tile_x; 
+        uint16_t vram_index = tile_map_addr - 0x8000;
+
+        // fetch tile number in tilemap
+
+        uint8_t tile_num = VRAM[vram_index];
         
+
+        uint8_t tile_row_in_data = (wnEnable && in_window) ? ((LY - WY) % 8) : ((LY + SCY) % 8);
+
+        uint16_t tile_data_addr = 0;
+
+
+        // get tile data for the tile number
+
+
+        if (objEnable != 0) {
+
+            for (int i = 0; i < spritesFound; i++) {
+
+                uint8_t obj_x = spritebuffer[i * 4 + 1];
+                
+                if ((x >= obj_x) && (x <= obj_x + 8)) {
+
+                    tile_num = spritebuffer[i * 4 + 2];
+                }
+
+            }
+        }
+
+
+        if (TilenumOffsetEnable != 0 ) {
+
+            tile_data_addr = 0x8000 + (tile_num * 16) + (tile_row_in_data * 2);
+
+        } else {
+
+            int16_t signed_tile_num = (int8_t)tile_num;
+            tile_data_addr = 0x9000 + (signed_tile_num * 16) + (tile_row_in_data * 2);
+
+        }
+
+    
+        uint16_t vram_data_index = tile_data_addr - 0x8000;
+
+        uint8_t low_byte = VRAM[vram_data_index];
+        uint8_t high_byte = VRAM[vram_data_index + 1];
         
-        uint16_t tile_map_addr = bg_map_addr + ((tile_y / 8) * 32) + (tile_x / 8);
-        
-        uint8_t tile_num = VRAM[tile_map_addr - 0x8000];
-        
-        // Get tile data
-        uint16_t tile_data_addr = 0x8000 + (tile_num * 16) + ((tile_y % 8) * 2);
-        uint8_t low_byte = VRAM[tile_data_addr - 0x8000];
-        uint8_t high_byte = VRAM[(tile_data_addr + 1) - 0x8000];
-        
+
+
         // Push to FIFO
         pixel_fifo.clear();
         for (int i = 0; i < 8; i++) {
@@ -109,6 +188,7 @@ void ppu::renderPixel() {
 
 
     if (!pixel_fifo.empty()) {
+
         uint8_t color_idx = pixel_fifo.front();
         pixel_fifo.pop_front();
         
