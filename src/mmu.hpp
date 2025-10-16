@@ -5,8 +5,7 @@
 
 class cartridge {
     public:
-        uint8_t romBank0[16384];
-        uint8_t romBank1[16384];
+        uint8_t romBank[8388608];
         uint8_t ERAM[8192];
 };
 
@@ -15,6 +14,9 @@ class mmu {
 
         cartridge cart;
 
+        uint8_t Single_Step_RAM[0xFFFF]; // for single step tests
+        bool single_step_enabled = false;
+
         uint8_t dataRet = 0;
 
         //WRAM 1 & 2
@@ -22,11 +24,15 @@ class mmu {
         uint8_t WRAM_2[4096];  
         uint8_t HRAM[127]; 
         bool bootRomEnabled = true;
+    
         //io registers
         uint8_t IO[128];
         uint8_t interrupts = 0; 
 
         uint8_t mapper = rd(0x147);
+
+        uint8_t ERAM_ENABLE = 0;
+        uint8_t rom_bank_number = 0;
 
         void ld(uint8_t data, uint16_t address);
 

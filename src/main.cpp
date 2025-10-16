@@ -89,7 +89,9 @@ int main(int argc, char *argv[]){
     cpu gb;
 
     std::string playerRom = argv[1];
+
     gb.initialize(playerRom);
+
     //main runtime
 
     while (!WindowShouldClose()) {

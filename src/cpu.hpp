@@ -27,6 +27,8 @@ class cpu {
         const uint8_t hf   = 0b00100000; //Half-Carry Flag
         const uint8_t cf   = 0b00010000; //Carry Flag
 
+        const int MAX_ROM_SIZE = 8388608; 
+
         uint8_t opcode = 0;
 
         int cycles = 0;

@@ -31,13 +31,10 @@ void cpu::initialize(std::string rom) {
     char byte;
     int address = 0;
 
-    while (file.get(byte) && address < 0x8000) {
-        if (address >= 0 && address <= 0x3FFF) { //romBank 0
-            mem.cart.romBank0[address] = byte;
-        }
-        else if (address >= 0x4000 && address <= 0x7FFF) { //romBank 1-NN (depending on mapper)
-            mem.cart.romBank1[address - 0x4000] = byte;
-        }
+    while (file.get(byte) && address < MAX_ROM_SIZE) {
+
+        mem.cart.romBank[address] = static_cast<uint8_t>(byte);
+
         address++;
     }
 
@@ -52,10 +49,11 @@ void cpu::initialize(std::string rom) {
 
     std::cout << "MAPPER: " << std::hex << +mapper << "\n";
 
+
+
 }
 
 int cpu::execute() {
-
 
     //get current opcode
     opcode = rd(PC);

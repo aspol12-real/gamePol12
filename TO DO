@@ -1,23 +1,33 @@
 short term:
 
 
-- implement joypad input
+
+- finish ppu implementation
+- implement joypad input (kind of works)
+
 - implement OAM DMA transfer
-- implement DAA
+- debug DAA
 
 - figure out how to use the single step tests
 
-- finish all opcodes (including prefixed)
+
+
+- finish all opcodes (almost done, prefixed are finished and work correctly)
 - get all blargg cpu tests working
-- make ppu work correctly, especially with rendering sprites
+
+
+
 - figure out why dr mario crashes now
 - figure out why tetris input is wonky
 
 long term:
 
 
-- overhaul debugger to use a better gui method (maybe just imgui), and include a live memory viewer (?)
-- implement actual mapper functionality
-- implement APU
-
+- overhaul debugger to use a better gui method (RAYGUI!), and include a live memory viewer (?)
+- implement actual mapper functionality (MBC1/3)
 - get some cool games working :DD
+
+
+far future:
+
+- implement APU
