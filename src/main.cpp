@@ -79,6 +79,10 @@ int main(int argc, char *argv[]){
         exit( 1 );
     }
 
+
+    SetConfigFlags(FLAG_VSYNC_HINT);
+    SetAPIVersion(RL_OPENGL_33);
+    
     InitWindow(screenWidth, screenHeight, "GB");
 
     Font customfont = LoadFont("res/fonts/JetBrainsMono-Bold.ttf");
