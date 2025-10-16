@@ -1,7 +1,7 @@
 #include <fstream>
 #include <cstdint>
 #include <iostream>
-#include <raylib.h>
+#include "external/raylib.h"
 #include <cstdlib>
 #include <iomanip>
 #include <array>

@@ -1,7 +1,7 @@
 CXX = g++
 CXXFLAGS = -std=c++14
 
-LDFLAGS = -lraylib -lGL -lm -lpthread -ldl -lrt 
+LDFLAGS = src/bin/libraylib.a -lGL -lm -lpthread -ldl -lrt 
 
 SOURCES = src/main.cpp src/cpu.cpp src/mmu.cpp src/apu.cpp src/ppu.cpp
 OBJECTS = $(SOURCES:.cpp=.o)
@@ -13,6 +13,6 @@ gb: $(OBJECTS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
-	rm -f *.o gb
+	rm -f src/*.o gb
 
 .PHONY: clean

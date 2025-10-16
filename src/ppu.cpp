@@ -91,6 +91,7 @@ void ppu::renderPixel() {
         uint8_t wnEnable             = mem->rd(0xFF40) & 0x20; // 00100000
         uint8_t TilenumOffsetEnable  = mem->rd(0xFF40) & 0x10; // 00010000
         uint8_t bgTileMap            = mem->rd(0xFF40) & 0x08; // 00001000
+
         uint8_t objEnable            = mem->rd(0xFF40) & 0x02; // 00000010
         
         uint16_t tile_num_offset = 0;
