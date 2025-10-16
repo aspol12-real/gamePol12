@@ -72,6 +72,8 @@ void render_screen(ppu& graphics);
 void draw_debug_overlay(cpu& gb, Font customfont);
 void draw_tilemap_viewer(cpu& gb, int startX, int startY);
 
+cpu gb;
+
 int main(int argc, char *argv[]){
 
     if (argc < 2) {
@@ -88,8 +90,6 @@ int main(int argc, char *argv[]){
     Image icon = LoadImage("res/icon.png"); 
     SetWindowIcon(icon);
     SetTargetFPS(60);
-
-    cpu gb;
 
     std::string playerRom = argv[1];
 
