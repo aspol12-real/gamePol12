@@ -15,8 +15,12 @@ void mmu::ld(uint8_t data, uint16_t address) {
     else if (address >= 0x2000 && address <= 0x3FFF) { //switch rom bank number
         rom_bank_number = data;
     }
-    else if (address >= 0x4000 && address <= 0x7FFF) {
-        return; //never write
+    else if (address >= 0x4000 && address <= 0x5FFF) {
+        if (data >= 0 && data <= 3) {
+
+        ram_bank_number = data;
+
+        }
     }
     else if (address >= 0xA000 && address <= 0xBFFF) { //External Cartridge Ram
 
@@ -100,7 +104,11 @@ uint8_t  mmu::rd(uint16_t address) {
 
     }
     else if (address >= 0xA000 && address <= 0xBFFF) { //External Cartridge Ram
-        dataRet = cart.ERAM[address - 0xA000];
+        
+        uint8_t ram_bank_number_final = ram_bank_number & 0b00000011;
+
+        dataRet = cart.ERAM[(address - 0xA000) + (ram_bank_number_final * 0x2000)]; //0x2000 because each RAM bank is 8kib
+
     }
     else if (address >= 0xC000 && address <= 0xCFFF) { //WRAM 1
         dataRet = WRAM_1[address - 0xC000];  

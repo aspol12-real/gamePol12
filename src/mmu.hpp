@@ -6,7 +6,7 @@
 class cartridge {
     public:
         uint8_t romBank[8388608];
-        uint8_t ERAM[8192];
+        uint8_t ERAM[32768];
 };
 
 class mmu {
@@ -33,6 +33,7 @@ class mmu {
 
         uint8_t ERAM_ENABLE = 0;
         uint8_t rom_bank_number = 0;
+        uint8_t ram_bank_number = 0;
 
         void ld(uint8_t data, uint16_t address);
 

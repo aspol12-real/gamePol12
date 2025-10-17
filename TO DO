@@ -2,19 +2,20 @@ short term:
 
 
 
-- finish ppu implementation
-- implement joypad input (kind of works)
+- finish ppu implementation {
 
-- implement OAM DMA transfer
+    - finish sprite rendering
+
+}
+
+
 - debug DAA
+
 
 - figure out how to use the single step tests
 
 
-
-- finish all opcodes (almost done, prefixed are finished and work correctly)
 - get all blargg cpu tests working
-
 
 
 - figure out why dr mario crashes now

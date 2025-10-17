@@ -66,16 +66,13 @@ class cpu {
             } 
             else if (address == 0xFF46) { //OAM DMA TRANSFER
 
-                // std::cout << "DMA\n";
+                uint16_t source_addr = data * 0x100;
 
-                uint16_t dma_addr_start = data << 8; // XX00
-
-                uint16_t dest_addr_start = 0xFE00;
-
-                for (int i = 0; i < 160; i++) {
-                    uint8_t byte = rd(dma_addr_start + i);
-                    ld(byte, dest_addr_start + i);
+                for (int i = 0; i < 0xA0; i++) {
+                    uint8_t byte = rd(source_addr + i);
+                    ld(byte, 0xFE00 + i);
                 }
+
                 cycles = 160;
             }
             else {
