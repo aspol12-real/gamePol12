@@ -1,11 +1,10 @@
 short term:
 
-
+-- remove pixel fifo
 
 - finish ppu implementation {
-
-    - finish sprite rendering
-
+    - finish 16 px tall sprite rendering
+    - make smooth scx scroll possible
 }
 
 
@@ -20,12 +19,15 @@ short term:
 
 - figure out why dr mario crashes now
 - figure out why tetris input is wonky
+- figure out why pokemon crashes past title screen
+
+- why do links awakening and super mario land 1 kick back out to title screen?
 
 long term:
 
 
 - overhaul debugger to use a better gui method (RAYGUI!), and include a live memory viewer (?)
-- implement actual mapper functionality (MBC1/3)
+
 - get some cool games working :DD
 
 
