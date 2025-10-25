@@ -69,12 +69,17 @@ int cpu::execute() {
     uint16_t a8 = 0xFF00 + n8;
     int8_t  e8 = static_cast<int8_t>(n8);
 
+    if (ime_schedule) {
+        IME = true;
+        ime_schedule = false;
+    }
+
     if (disable_pending) {
         IME = false;
         disable_pending = false;
     }
     if (enable_pending) {
-        IME = true;
+        ime_schedule = true;
         enable_pending = false;
     }
     //decode
@@ -355,7 +360,7 @@ int cpu::execute() {
         case 0xF0: set_A(mem.rd(a8)); PC += 2; cycles = 12; break;
         case 0xF1: POP_AF(); PC++; cycles = 16; break;
         case 0xF2: set_A(mem.rd(0xFF00 + get_C())); PC++; cycles = 8; break;
-        case 0xF3: disable_pending = true; PC++; cycles = 4; break;
+        case 0xF3: disable_pending = true; ime_schedule = false; PC++; cycles = 4; break;
         //ILLEGAL OPCODE 0xF4
         case 0xF5: PUSH_AF(); PC++; cycles = 16; break;
         case 0xF6: set_A(OR(get_A(), n8)); PC += 2; cycles = 8; break;
@@ -374,33 +379,34 @@ int cpu::execute() {
             PC++;
     }
 
-
-    if (IME) {
-
-        uint8_t IE = mem.rd(0xFFFF);
-        uint8_t IF = mem.rd(0xFF0F);
-
-        uint8_t pending = IE & IF;
-
-        if (pending > 0) {
-            for (int i = 0; i <= 4; i++) {
-                uint8_t interrupt_bit = (1 << i);
-
-                if(pending & interrupt_bit) {
-                    IME = false;
-
-                    mem.ld((IF & ~interrupt_bit), 0xFF0F); 
-                    PUSH(PC); 
-                    PC = 0x0040 | (i * 0x8);
-                    cycles += 20;
-                    break;
-                }    
-            }
+    if ((mem.rd(0xFFFF) & mem.rd(0xFF0F)) != 0)
+    std::cout << "Interrupt pending! IE=" << std::hex << +mem.rd(0xFFFF)
+              << " IF=" << +mem.rd(0xFF0F)
+              << " IME=" << IME << "\n";
+              
+    uint8_t IE = mem.rd(0xFFFF);
+    uint8_t IF = mem.rd(0xFF0F);
+    uint8_t pending = IE & IF;
+    if (halted) {
+        if (pending) {
+            halted = false;
+            if (!IME) haltBug = true;
         }
-    } else if (!IME && (mem.rd(0xFFFF) & mem.rd(0xFF0F)) != 0) {
-        haltBug = true;
     }
 
+    if (IME && pending) {
+        IME = false;
+        halted = false;
+        for (int i = 0; i < 5; i++) {
+            if (pending & (1 << i)) {
+                mem.ld(IF & ~(1 << i), 0xFF0F);
+                PUSH(PC);
+                PC = 0x0040 | (i * 0x08);
+                cycles += 20;
+                break;
+            }
+        }
+    }
     return cycles;
 }
 

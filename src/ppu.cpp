@@ -123,7 +123,6 @@ void ppu::render_scanline(int LY) {
 
             bg_raw_colors[current_pixel_x] = bg_color_index;
 
- 
             final_colors[current_pixel_x] = get_color(bg_color_index, palette_address); 
             
             current_pixel_x++;

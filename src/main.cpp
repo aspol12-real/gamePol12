@@ -119,9 +119,9 @@ void draw_debug_overlay(cpu& gb, mmu& mem, Font customfont) {
     DrawTextEx(customfont, TextFormat("AF: %04x, BC: %04x", gb.AF, gb.BC), {debugX, 0}, 32.0, 2.0, GREEN);
     DrawTextEx(customfont, TextFormat("DE: %04x, HL: %04x", gb.DE, gb.HL), {debugX, 30}, 32.0, 2.0, GREEN);
     DrawTextEx(customfont, TextFormat("SP: %04x, PC: %04x", gb.SP, gb.PC), {debugX, 60}, 32.0, 2.0, GREEN);
-    DrawTextEx(customfont, TextFormat("OPCODE: %02x", gb.opcode), {debugX,90}, 32.0, 2.0, GREEN);
+    DrawTextEx(customfont, TextFormat("OPCODE: %02x, HALT: %d", gb.opcode, gb.halted), {debugX,90}, 32.0, 2.0, GREEN);
     DrawTextEx(customfont, TextFormat("FLAGS: %d, %d, %d, %d", gb.get_ZF(), gb.get_NF(), gb.get_HF(), gb.get_CF()), {debugX, 120}, 32.0, 2.0, GREEN);
-    DrawTextEx(customfont, TextFormat("CYCLES: %d", gb.cycles), {debugX,150}, 32.0, 2.0, GREEN);
+    DrawTextEx(customfont, TextFormat("CYCLES: %02d, IME: %d", gb.cycles, gb.IME), {debugX,150}, 32.0, 2.0, GREEN);
     DrawTextEx(customfont, TextFormat("[HL]: %02x, [BC]: %02x", mem.rd(gb.HL), mem.rd(gb.BC)), {debugX,180}, 32.0, 2.0, GREEN);
     DrawTextEx(customfont, TextFormat("LCDC: %02x, LY: %02x", mem.rd(0xFF40), mem.rd(0xFF44)), {debugX,210}, 32.0, 2.0, GREEN);
     DrawTextEx(customfont, TextFormat("SCX: %02x, SCY: %02x", mem.rd(0xFF43), mem.rd(0xFF42)), {debugX,240}, 32.0, 2.0, GREEN);

@@ -115,6 +115,10 @@ void mmu::ld(uint8_t data, uint16_t address) {
             IO[0x0F] |= 0x08;
         }
     }
+    else if (address == 0xFF0F) { // Interrupt Flag
+        IO[0x0F] = (data & 0x1F) | 0xE0;
+        return;
+    }
     else if (address == 0xFF46) { //OAM DMA TRANSFER
 
         uint16_t source_addr = data * 0x100;
@@ -129,6 +133,7 @@ void mmu::ld(uint8_t data, uint16_t address) {
 
     else if (address == 0xFF50) {
         bootRomEnabled = false; 
+        std::cout << "Boot Rom Disabled!\n";
     }
     else if (address >= 0xFF00 && address <= 0xFF7F) { //I/O registers
         IO[address - 0xFF00] = data;
@@ -137,7 +142,7 @@ void mmu::ld(uint8_t data, uint16_t address) {
         HRAM[address - 0xFF80] = data;
     }
     else if (address == 0xFFFF) {
-        interrupts = data;
+        interrupts = data & 0x00011111;
     }
     else {
         std::cout << "BAD POKE . ADDRESS: " << std::hex << +address << "\n";
@@ -253,6 +258,9 @@ uint8_t  mmu::rd(uint16_t address) {
     else if (address == 0xFF01) {
         return IO[1];
     }
+    else if (address == 0xFF0F) {
+        return IO[0x0F] | 0xE0;
+    }
     else if (address >= 0xFF00 && address <= 0xFF7F) { //I/O registers
         return IO[address - 0xFF00];
     }
@@ -260,7 +268,7 @@ uint8_t  mmu::rd(uint16_t address) {
         return HRAM[address - 0xFF80];
     }
     else if (address == 0xFFFF) {
-        return interrupts;
+        return interrupts & 0x00011111;
     }
     else {
         std::cout << "BAD PEEK . ADDRESS: " << std::hex << +address << "\n";

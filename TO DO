@@ -1,16 +1,13 @@
 short term:
 
--- remove pixel fifo
-
 - finish ppu implementation {
     - finish 16 px tall sprite rendering
-    - make smooth scx scroll possible
+    - fix window rendering
 }
 
 -- fix opcodes: HALT, STOP, 0xFB
 
 - get all blargg cpu tests working
-
 
 - figure out why tetris input is wonky
 - figure out why pokemon crashes past title screen
@@ -18,7 +15,6 @@ short term:
 - why do links awakening and super mario land 1 kick back out to title screen?
 
 long term:
-
 
 - overhaul debugger to use a better gui method (RAYGUI!), and include a live memory viewer (?)
 

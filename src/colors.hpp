@@ -29,4 +29,4 @@ std::array<Color, 4> palette4 = {{
     {0, 0, 0, 255}
 }};
 
-std::array<Color, 4> current_Pallete = palette2;
+std::array<Color, 4> current_Pallete = palette1;

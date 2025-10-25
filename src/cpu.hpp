@@ -17,6 +17,7 @@ class cpu {
 
         
         bool IME = true;
+        bool ime_schedule = false;
         bool enable_pending = false;
         bool disable_pending = false;
         bool stopped = false;
