@@ -1,20 +1,21 @@
 #pragma once
 
+#include "mmu.hpp"
+
 #include <iostream>
 #include <string>
 #include <cstdint>
-#include "mmu.hpp"
-#include "ppu.hpp"
 
 class cpu {
-    public: 
-        //memory
-        mmu mem;
-        ppu graphics;
+    private:
 
-        cpu() : mem(), graphics(&mem) {}
+        mmu& mem;
+
+    public: 
+
+        cpu(mmu& shared_memory) : mem(shared_memory){};
+
         
-        bool startup = false;
         bool IME = true;
         bool enable_pending = false;
         bool disable_pending = false;
@@ -37,69 +38,12 @@ class cpu {
         uint16_t AF = 0x01B0;
         uint16_t BC, DE, HL = 0x0000;
         uint8_t dataRet = 0;
-        uint16_t PC = 0;
-        uint16_t SP = 0xFFFE;
-
-        int tma_reload_cycles;
-        int tma_reload_value;
-        bool tma_reload_scheduled = false;
+        uint16_t PC;
+        uint16_t SP;
 
         //methods
         void initialize(std::string rom);
-        void ld(uint8_t data, uint16_t address) {
-            if (address >= 0x8000 && address <= 0x9FFF) {
-                if (graphics.vramRestrict) {
-                    return;
-                } else {
-                    graphics.VRAM[address - 0x8000] = data;
-                    return; 
-                }
-            } else if (address >= 0xFE00 && address <= 0xFE9F) {
-                if (graphics.oamRestrict) {
-                    return; 
-                } else {
-                    graphics.OAM[address - 0xFE00] = data;
-                    return;
-                }
-            } else if (address >= 0xFEA0 && address <= 0xFEFF) {
-                // std::cout << "NOT USABLE. PC = " << std::hex << +PC << " OPCODE = " << +opcode << " HL = " << +HL << "\n"; 
-            } 
-            else if (address == 0xFF46) { //OAM DMA TRANSFER
 
-                uint16_t source_addr = data * 0x100;
-
-                for (int i = 0; i < 0xA0; i++) {
-                    uint8_t byte = rd(source_addr + i);
-                    ld(byte, 0xFE00 + i);
-                }
-
-                cycles = 160;
-            }
-            else {
-                mem.ld(data, address);
-            }
-        }
-        uint8_t rd(uint16_t address) {
-            
-            if (address >= 0x8000 && address <= 0x9FFF) {
-                if (graphics.vramRestrict) {
-                    return 0xFF;
-                } else {
-                    return graphics.VRAM[address - 0x8000];
-                }
-            } else if (address >= 0xFE00 && address <= 0xFE9F) {
-                if (graphics.oamRestrict) {
-                    return 0xFF;
-                } else {
-                    return graphics.OAM[address - 0xFE00];
-                }
-            } else if (address >= 0xFEA0 && address <= 0xFEFF) {
-                // std::cout << "NOT USABLE. PC = " << std::hex << +PC << " OPCODE = " << +opcode << " HL = " << +HL << "\n";
-                return 0xFF; 
-            } else {
-                return mem.rd(address);
-            }
-        }
         int execute();
 
         uint8_t get_A() const { return (AF >> 8) & 0xFF; }
@@ -150,11 +94,14 @@ class cpu {
         }
 
         void set_CF(bool set) { 
+            uint8_t f = AF & 0xFF; 
+    
             if (set) {
-                AF |= cf; 
+                f |= cf; 
             } else {
-                AF &= ~cf; 
+                f &= ~cf; 
             }
+            AF = (AF & 0xFF00) | f;
         }
 
         void inc_SP() { SP++; }
@@ -178,33 +125,29 @@ class cpu {
         void ADC(uint8_t byte);
         void SBC(uint8_t byte);
         uint16_t SPADD(uint8_t byte);
-        uint8_t SWAP(uint8_t reg);
-        uint8_t RES(uint8_t bit, uint8_t reg);
-        uint8_t SET(uint8_t bit, uint8_t reg);
+        void DAA();
 
-        uint8_t SRA(uint8_t byte);
-        uint8_t SRL(uint8_t byte);
-        uint8_t SLA(uint8_t byte);
 
         //CB opcodes
         void PREFIXED();
         void BIT(int bit, uint8_t reg);
+        uint8_t SWAP(uint8_t reg);
+        uint8_t RES(uint8_t bit, uint8_t reg);
+        uint8_t SET(uint8_t bit, uint8_t reg);
+        uint8_t SRA(uint8_t byte);
+        uint8_t SRL(uint8_t byte);
+        uint8_t SLA(uint8_t byte);
+        uint8_t RL(uint8_t byte);
+        uint8_t RLC(uint8_t byte);
+        uint8_t RR(uint8_t byte);
+        uint8_t RRC(uint8_t byte);
 
 
-        void DAA();
-
+        //control flow
         void PUSH_AF();
         void POP_AF();
         void PUSH(uint16_t addr);
         void POP(uint16_t& reg);
-
-        uint8_t RL(uint8_t byte);
-        uint8_t RLC(uint8_t byte);
-
-        uint8_t RR(uint8_t byte);
-        uint8_t RRC(uint8_t byte);
-
         void CP(uint8_t a, uint8_t b);
 
-        void tick_peripherals(int cycles);
 };

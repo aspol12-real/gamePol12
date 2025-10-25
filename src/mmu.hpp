@@ -1,7 +1,10 @@
 #pragma once
 
+#include <iostream>
 #include <cstdint>
 #include <cstddef>
+
+#include "ppu.hpp"
 
 class cartridge {
     public:
@@ -10,6 +13,10 @@ class cartridge {
 };
 
 class mmu {
+    private:
+
+        ppu* graphics = nullptr;
+
     public:
 
         cartridge cart;
@@ -34,10 +41,13 @@ class mmu {
         uint8_t ERAM_ENABLE = 0;
         uint8_t rom_bank_number = 0;
         uint8_t ram_bank_number = 0;
+        uint8_t banking_mode = 0;
+        uint8_t rom_bank_number_final = 0;
+        uint8_t ram_bank_number_final = 0;
 
         void ld(uint8_t data, uint16_t address);
-
         uint8_t rd(uint16_t address);
+        void connect_ppu(ppu* ppu_ptr); 
 
         uint8_t bootRom[256] = {
             0x31, 0xfe, 0xff, 0xaf, 0x21, 0xff, 0x9f, 0x32, 0xcb, 0x7c, 0x20, 0xfb,

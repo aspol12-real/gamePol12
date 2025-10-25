@@ -7,17 +7,11 @@ short term:
     - make smooth scx scroll possible
 }
 
-
-- debug DAA
-
-
-- figure out how to use the single step tests
-
+-- fix opcodes: HALT, STOP, 0xFB
 
 - get all blargg cpu tests working
 
 
-- figure out why dr mario crashes now
 - figure out why tetris input is wonky
 - figure out why pokemon crashes past title screen
 

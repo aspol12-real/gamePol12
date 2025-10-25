@@ -1,13 +1,12 @@
 #include "ppu.hpp"
 #include "mmu.hpp"
-#include <iostream>
 
 void ppu::tick() {
 
     clocks++; //increment clocks ONCE per tick
 
     if (LY < 144) {
-        if (clocks >= 0 && clocks <= 79) {  //OAM SEARCH (ONLY OAM CANNOT BE ACCESSED)
+        if (clocks == 1 && LY < 144) {  //OAM SEARCH (ONLY OAM CANNOT BE ACCESSED)
             set_ppu_mode(oamsearch);
 
             spritesFound = 0;
@@ -18,13 +17,13 @@ void ppu::tick() {
                 uint8_t tile_number = OAM[i * 4 + 2];
                 uint8_t sprite_flags = OAM[i * 4 + 3];
 
-                const int SPRITE_HEIGHT = 8;
-                if (((sprite_X + 8) > 0) && ((LY + 16) >= sprite_Y) && ((LY + 16) < (sprite_Y + SPRITE_HEIGHT))) {
+                int spriteHeight = (mem.rd(0xFF40) & 0x04) ? 16 : 8;
+                if (((sprite_X + 8) > 0) && ((LY + 16) >= sprite_Y) && ((LY + 16) < (sprite_Y + spriteHeight))) {
                     spritesFound++;
                     if (spritesFound <= FINDABLE_SPRITES) {
                         addSprite(spritesFound - 1, sprite_Y, sprite_X, tile_number, sprite_flags);
                     } else {
-                        return;
+                        
                     }
                 }
             }
@@ -34,14 +33,10 @@ void ppu::tick() {
         }
         else if (clocks == 80) { //Pixel Transfer (VRAM & OAM CANNOT BE ACCESSED)
             set_ppu_mode(pixeltransfer);
+            render_scanline(LY);
             oamRestrict = true;
             vramRestrict = true;
 
-        }
-        else if (clocks >= 80 && clocks < 252) {
-            if (get_ppu_mode() == pixeltransfer && x < 160) {
-                renderPixel();
-            }
         }
         else if (clocks == 252) { //H-Blank (VRAM AND OAM CAN BE ACCESSED)
             set_ppu_mode(h_blank);
@@ -56,9 +51,9 @@ void ppu::tick() {
         LY++;
 
         if (LY == 144) { //ENTER VBLANK SCANLINE PERIOD
-            uint8_t temp = mem->rd(0xFF0F);
+            uint8_t temp = mem.rd(0xFF0F);
             temp |= 0x1;
-            mem->ld(temp, 0xFF0F);
+            mem.ld(temp, 0xFF0F);
 
             oamRestrict = false;
             vramRestrict = false;
@@ -70,257 +65,144 @@ void ppu::tick() {
 
         } 
 
-        mem->ld(LY, 0xFF44); //updates LY register
+        mem.ld(LY, 0xFF44); //updates LY register
     }
 }
 
 
+void ppu::render_scanline(int LY) {
 
-
-
-
-
-
-
-
-void ppu::renderPixel() {
-
-    uint8_t low_byte = 0;
-    uint8_t high_byte = 0;
+    uint16_t tile_num_addr_base;
+    uint16_t tile_num_addr;
+    uint16_t tile_data_addr_base;
+    uint16_t tile_data_addr;
     uint8_t tile_num;
-    
-    uint8_t wnTileMap            = mem->rd(0xFF40) & 0x40; // 01000000
-    uint8_t wnEnable             = mem->rd(0xFF40) & 0x20; // 00100000
-    uint8_t TilenumOffsetEnable  = mem->rd(0xFF40) & 0x10; // 00010000
-    uint8_t bgTileMap            = mem->rd(0xFF40) & 0x08; // 00001000
-    uint8_t spriteSize           = mem->rd(0xFF40) & 0x04; // 00000100
-    uint8_t objEnable            = mem->rd(0xFF40) & 0x02; // 00000010
-    uint8_t bgWinPriority        = mem->rd(0xFF40) & 0x01; // 00000001
+    uint16_t offset;
+    uint8_t low_byte;
+    uint8_t high_byte;
 
-    if (x % 8 == 0) { //every 8 pixels
+    uint8_t LCDC = mem.rd(0xFF40);
+    uint8_t SCY  = mem.rd(0xFF42);
+    uint8_t SCX  = mem.rd(0xFF43);
+    uint8_t WY   = mem.rd(0xFF4A);
+    uint8_t WX   = mem.rd(0xFF4B);
 
-        uint8_t SCY = mem->rd(0xFF42);
-        uint8_t SCX = mem->rd(0xFF43);
+    bool masterEnable = LCDC & 0x80;
+    bool wnTileMap    = LCDC & 0x40;
+    bool wnEnable     = LCDC & 0x20;
+    bool bgWinTile    = LCDC & 0x10;
+    bool bgTileMap    = LCDC & 0x08;
+    bool objSize      = LCDC & 0x04;
+    bool objEnable    = LCDC & 0x02;
+    bool bgPriority   = LCDC & 0x01;
 
-        uint8_t WX  = mem->rd(0xFF4A);
-        uint8_t WY  = mem->rd(0xFF4B);
+    background_fifo.clear();
+    fetch_tile_row(0, LY);
+    int discard_count = SCX % 8;
+    int current_pixel_x = 0;
 
-        uint16_t tile_y = 0;
-        uint16_t tile_x = 0;
-
-        uint16_t tile_data_addr = 0;
-        
-        uint16_t tile_num_offset = 0;
-
-        bool in_window = ((x >= WX - 7) && LY >= WY);
-
-        uint16_t first_map_addr = 0;
-
-        if (wnEnable && in_window) {
-
-            if (wnTileMap != 0) {
-                first_map_addr = 0x9C00;
-            } else {
-                first_map_addr = 0x9800;
-            }
-
-            uint16_t wn_x_coord = x - (WX - 7); // x relative to window left edge (WX-7)
-            uint16_t wn_y_coord = LY - WY;      // y relative to window top edge (WY)
-
-            tile_x = wn_x_coord / 8; // Index of the tile column (0-31)
-            tile_y = (wn_y_coord / 8) * 32;
-
+    for (int i = 0; i < discard_count; ++i) {
+        if (!background_fifo.empty()) {
+            background_fifo.pop_front();
         } else {
-
-            if (bgTileMap != 0) {
-                first_map_addr = 0x9C00;
-            } else {
-                first_map_addr = 0x9800;
-            }
-
-            
-            tile_x = (x + SCX) / 8;
-            tile_y = ((LY + SCY) / 8) * 32;
+            break; 
         }
-        
-    
-
-        // calculate VRAM address where tile number is stored for this tile
-
-        uint16_t tile_map_addr = first_map_addr + tile_y + tile_x; 
-        uint16_t vram_index = tile_map_addr - 0x8000;
-
-        // fetch tile number in tilemap
-
-        tile_num = VRAM[vram_index];
-        
-
-        uint8_t tile_row_in_data = (wnEnable && in_window) ? ((LY - WY) % 8) : ((LY + SCY) % 8);
-
-
-        // get tile data for the tile number
-
-
-        if (TilenumOffsetEnable != 0 ) {
-
-            tile_data_addr = 0x8000 + (tile_num * 16) + (tile_row_in_data * 2);
-
-        } else {
-
-            int16_t signed_tile_num = (int8_t)tile_num;
-            tile_data_addr = 0x9000 + (signed_tile_num * 16) + (tile_row_in_data * 2);
-
-        }
-        
-        uint16_t vram_data_index = tile_data_addr - 0x8000;
-        
-        low_byte = VRAM[vram_data_index];
-        high_byte = VRAM[vram_data_index + 1];
-        
-
-        //push pixel data for tile to pixel FIFO
-
-        pixel_fifo.clear();
-        for (int i = 0; i < 8; i++) {
-            int bit_idx = 7 - i;
-            uint8_t color = ((high_byte >> bit_idx) & 1) << 1 | ((low_byte >> bit_idx) & 1);
-            pixel_fifo.push_back(color);
-        }
-    
-
     }
 
-    if (pixel_fifo.empty()) {
-        x++;
-        return;
-    }
-    
-    uint8_t color_idx = pixel_fifo.front(); //get front pixel
+    while (current_pixel_x < GB_WIDTH) {
 
-    pixel_fifo.pop_front(); //pop pixel to move fifo
-    
-    uint8_t bg_color = get_color(color_idx, 0xFF47);
+        if (background_fifo.size() < 8) {
+            int tile_x = (current_pixel_x + SCX) / 8;
+            fetch_tile_row(current_pixel_x + 8, LY);
+        }
 
-    uint8_t final_color = bg_color; //TODO: change
-    
-
-    //for every X value
-    if (objEnable != 0) {
-
-        for (int i = 0; i < spritesFound; i++) {
-            uint8_t obj_x = spritebuffer[i * 4 + 1];
-            uint8_t obj_y = spritebuffer[i * 4];
+        if (!background_fifo.empty()) {
             
-            if ((x >= obj_x - 8) && (x < obj_x)) {
-                uint8_t flags = spritebuffer[i * 4 + 3];
-                uint8_t tile_num_oam = spritebuffer[i * 4 + 2];
+            uint8_t bg_color_index = background_fifo.front();
+            background_fifo.pop_front();
 
-                uint8_t screen_start_x = obj_x - 8;
-                uint8_t screen_start_y = obj_y - 16;
+            bg_raw_colors[current_pixel_x] = bg_color_index;
 
-                uint8_t sprite_pixel_x = x - screen_start_x;  
+ 
+            final_colors[current_pixel_x] = get_color(bg_color_index, palette_address); 
+            
+            current_pixel_x++;
+        } else {
+            break; 
+        }
+    }
 
-                int spriteheight;
+    if (objEnable) {
+        for (int j = 0; j < spritesFound; j++) {
+            uint8_t obj_y = spritebuffer[j * 4];
+            uint8_t obj_x = spritebuffer[j * 4 + 1];
+            uint8_t obj_index = spritebuffer[j * 4 + 2];
+            uint8_t obj_attributes = spritebuffer[j * 4 + 3];
 
-                if (spriteSize != 0) {
-                    spriteheight = 16;
-                } else {
-                    spriteheight = 8;
-                }
+            bool use_palette1  = obj_attributes & 0x10;
+            bool x_flip        = obj_attributes & 0x20;
+            bool y_flip        = obj_attributes & 0x40;
+            bool bg_priority   = obj_attributes & 0x80;
+            
+            int spriteHeight = (LCDC & 0x04) ? 16 : 8;
 
-
-                if ((LY < screen_start_y) || (LY >= screen_start_y + spriteheight)) {
-                    continue; 
-                }
-
-                uint8_t sprite_pixel_y_abs = LY - screen_start_y;
-                uint8_t tile_y_index = sprite_pixel_y_abs;
-                uint8_t current_tile_num = tile_num_oam;
-
-                if (spriteheight == 16) {
-                    if (flags & 0x40) {
-                        if (sprite_pixel_y_abs < 8) {
-                            current_tile_num = tile_num_oam | 0x01; 
-                            tile_y_index = 7 - sprite_pixel_y_abs;
-                        } else { 
-                            current_tile_num = tile_num_oam & 0xFE;
-                            tile_y_index = 15 - sprite_pixel_y_abs; 
-                        }
-                    } else { 
-
-                        if (sprite_pixel_y_abs < 8) { 
-                            current_tile_num = tile_num_oam & 0xFE;
-                            tile_y_index = sprite_pixel_y_abs;
-                        } else {
-                            current_tile_num = tile_num_oam | 0x01;
-                            tile_y_index = sprite_pixel_y_abs - 8;
-                        }
-                    }
-                } else { 
-                    if (flags & 0x40) {
-                        tile_y_index = 7 - sprite_pixel_y_abs;
+            if (LY >= (obj_y - 16) && LY < (obj_y - 16 + spriteHeight)) {
+                uint8_t row = LY - (obj_y - 16); 
+                if (y_flip) row = (spriteHeight - 1) - row;
+                
+                uint8_t tile_index_to_use = obj_index;
+                if (spriteHeight == 16) {
+                    tile_index_to_use &= 0xFE; 
+                    if (row >= 8) {
+                        tile_index_to_use |= 0x01;
+                        row -= 8;
                     }
                 }
-
-                bool x_flip = flags & 0x20;
-
-
-                uint16_t tile_addr = 0x8000 + (current_tile_num * 16) + (tile_y_index * 2);
-                uint8_t low_byte = VRAM[tile_addr - 0x8000];
-                uint8_t high_byte = VRAM[tile_addr - 0x8000 + 1];
                 
+                uint16_t tile_addr = 0x8000 + tile_index_to_use * 16 + row * 2;
+                uint8_t low_byte  = mem.rd(tile_addr);
+                uint8_t high_byte = mem.rd(tile_addr + 1);
 
-                int bit_idx;
-                if (flags & 0x20) {
-                 
-                    bit_idx = sprite_pixel_x;
-                } else {
-                   
-                    bit_idx = 7 - sprite_pixel_x;
-                }
-                
+                for (int x = 0; x < 8; x++) {
+                    int pixel_x = obj_x - 8 + x; 
+                    if (pixel_x < 0 || pixel_x >= GB_WIDTH) continue;
 
-                uint8_t sprite_color = ((high_byte >> bit_idx) & 1) << 1 | ((low_byte >> bit_idx) & 1);
+                    int bit = x_flip ? x : 7 - x;
+                    uint8_t color_index = ((high_byte >> bit) & 1) << 1 | ((low_byte >> bit) & 1);
 
+                    if (color_index == 0) continue; 
 
-                if (sprite_color != 0) {
+                    if (bg_priority && bg_raw_colors[pixel_x] != 0) continue;
 
-                    uint16_t palette_addr = (flags & 0x10) ? 0xFF49 : 0xFF48;
-                    final_color = get_color(sprite_color, palette_addr);
-                    break;
+                    uint8_t palette_addr = use_palette1 ? 0xFF49 : 0xFF48;
+                    uint8_t final_color = get_color(color_index, palette_addr);
+
+                    final_colors[pixel_x] = final_color;
                 }
             }
         }
     }
 
-
-    screenBuffer[LY * 160 + x] = final_color;
-    x++;
+    for (int x = 0; x < GB_WIDTH; x++) {
+        int line_start = LY * GB_WIDTH;
+        screenBuffer[line_start + x] = final_colors[x];
+    }
 }
-
-
-
-
-
-
-
-
-
 
 
 void ppu::set_ppu_mode(uint8_t mode) {
 
-    temp = mem->rd(0xFF41);
+    temp = mem.rd(0xFF41);
     temp &= 0b11111100;
     temp |= mode;
-    mem->ld(temp, 0xFF41); 
+    mem.ld(temp, 0xFF41); 
 
 }
 
 
 uint8_t ppu::get_color(uint8_t color_index, uint16_t palette_address) {
 
-    uint8_t palette_data = mem->rd(palette_address);
+    uint8_t palette_data = mem.rd(palette_address);
     uint8_t shift = color_index * 2;
     uint8_t final_palette_index = (palette_data >> shift) & 0b11; 
     
@@ -339,5 +221,64 @@ void ppu::addSprite(int i, uint8_t a, uint8_t b, uint8_t c, uint8_t d) {
 }
 
 uint8_t ppu::get_ppu_mode() {
-    return mem->rd(0xFF41) & 0x03;
+    return mem.rd(0xFF41) & 0x03;
+}
+
+void ppu::fetch_tile_row(int current_pixel_x, int scanline_y) {
+    
+    uint8_t LCDC = mem.rd(0xFF40);
+    uint8_t SCY  = mem.rd(0xFF42);
+    uint8_t SCX  = mem.rd(0xFF43);
+    uint8_t WY   = mem.rd(0xFF4A);
+    uint8_t WX   = mem.rd(0xFF4B);
+
+    bool wnTileMap    = LCDC & 0x40;
+    bool wnEnable     = LCDC & 0x20;
+    bool bgWinTile    = LCDC & 0x10;
+    bool bgTileMap    = LCDC & 0x08;
+
+    bool drawing_window = wnEnable && (WX <= 166) && (scanline_y >= WY) && (current_pixel_x >= (WX - 7));
+
+    uint8_t tile_y_offset;
+    uint16_t tile_num_addr_base;
+    uint16_t tile_data_addr_base = (bgWinTile) ? 0x8000 : 0x9000;
+    uint8_t tile_num;
+
+    if (drawing_window) {
+
+        uint8_t window_line = scanline_y - WY;
+        uint8_t map_y = (window_line / 8) & 0x1F; 
+        uint8_t map_x = ((current_pixel_x - (WX - 7)) / 8) & 0x1F; 
+        tile_y_offset = (window_line % 8);
+        tile_num_addr_base = (wnTileMap) ? 0x9C00 : 0x9800;
+        
+        uint16_t tile_num_addr = tile_num_addr_base + map_y * 32 + map_x;
+        tile_num = mem.rd(tile_num_addr);
+    } else {
+
+        uint8_t map_y = ((scanline_y + SCY) / 8) & 0x1F; 
+        uint8_t map_x = ((current_pixel_x + SCX) / 8) & 0x1F; 
+        tile_y_offset = (scanline_y + SCY) % 8;
+        tile_num_addr_base = (bgTileMap) ? 0x9C00 : 0x9800;
+
+        uint16_t tile_num_addr = tile_num_addr_base + map_y * 32 + map_x;
+        tile_num = mem.rd(tile_num_addr);
+    }
+
+
+    uint16_t tile_data_addr;
+    if (bgWinTile) {
+        tile_data_addr = tile_data_addr_base + (tile_num * 16) + tile_y_offset * 2;
+    } else {
+        int16_t signed_tile_num = (int8_t)tile_num;
+        tile_data_addr = tile_data_addr_base + (signed_tile_num * 16) + tile_y_offset * 2;
+    }
+
+    uint8_t low_byte = mem.rd(tile_data_addr);
+    uint8_t high_byte = mem.rd(tile_data_addr + 1);
+
+    for (int bit = 7; bit >= 0; bit--) {
+        uint8_t color_index = ((high_byte >> bit) & 1) << 1 | ((low_byte >> bit) & 1);
+        background_fifo.push_back(color_index);
+    }
 }
