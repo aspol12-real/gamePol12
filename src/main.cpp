@@ -41,17 +41,17 @@ bool buttons_enable = false;
 void render_screen(ppu& graphics);
 void draw_debug_overlay(cpu& gb, mmu& mem, Font customfont);
 void draw_tilemap_viewer(cpu& gb, ppu& graphics, int startX, int startY);
-void handle_inputs(cpu& gb, mmu& mem);
+void handle_inputs(cpu& gb, mmu& mem, ppu& graphics);
 void tick_peripherals(mmu& mem, ppu& graphics, int cycles);
 void render_all(cpu& gb, mmu& mem, ppu& graphics, Font customfont);
 
+mmu mem;
+ppu graphics(mem);
+mem.connect_ppu(&graphics);
+cpu gb(mem);
+
 //it's showtime, folks
 int main(int argc, char *argv[]){
-
-    mmu mem;
-    ppu graphics(mem);
-    mem.connect_ppu(&graphics);
-    cpu gb(mem);
 
     if (argc < 2) {
         std::cout << "USAGE: ./gb [filename].gb \n";
@@ -74,7 +74,7 @@ int main(int argc, char *argv[]){
 
     while (!WindowShouldClose()) {
 
-        handle_inputs(gb, mem);
+        handle_inputs(gb, mem, graphics);
 
         if (run) {
             int cycles_this_frame = 0;
@@ -177,7 +177,7 @@ void draw_tilemap_viewer(cpu& gb, ppu& graphics, int startX, int startY) {
     }
 }
 
-void handle_inputs(cpu& gb, mmu& mem) {
+void handle_inputs(cpu& gb, mmu& mem, ppu& graphics) {
     g_polled_actions = 0x0F;
         g_polled_directions = 0x0F;
 
@@ -202,14 +202,16 @@ void handle_inputs(cpu& gb, mmu& mem) {
                 run = true;
             }
             if (IsKeyPressed(KEY_S)) {
-                gb.execute();  
+                int cycles_executed = gb.execute();
+                tick_peripherals(mem, graphics, cycles_executed);
                 if (gb.halted){
                     std::cout << "HALTED!\n";
                 }
             }
             if (IsKeyDown(KEY_D)) {
                 for (int i = 0; i < 100; i++) {
-                    gb.execute();  
+                    int cycles_executed = gb.execute();
+                    tick_peripherals(mem, graphics, cycles_executed);
                 }
             }
             if (IsKeyPressed(KEY_P)) {
@@ -247,6 +249,9 @@ void handle_inputs(cpu& gb, mmu& mem) {
         if (IsKeyPressed(KEY_FOUR)) {
             current_Pallete = palette4;
         }
+        if (IsKeyPressed(KEY_FIVE)) {
+            current_Pallete = palette5;
+        }
 }
 
 void tick_peripherals(mmu& mem, ppu& graphics, int cycles) {
@@ -276,6 +281,7 @@ void tick_peripherals(mmu& mem, ppu& graphics, int cycles) {
             mem.ld(0, 0xFF05); //wrap to 0
 
             uint8_t TMA = mem.rd(0xFF06);
+
             uint8_t interruptFlag = mem.rd(0xFF0F);
             interruptFlag |= 0x4;
             mem.ld(interruptFlag, 0xFF0F);
@@ -289,7 +295,10 @@ void tick_peripherals(mmu& mem, ppu& graphics, int cycles) {
         }
     }
 
-
+    //increment div
+    uint8_t div = mem.rd(0xFF04);
+    div++;
+    mem.ld(div, 0xFF04);
 
 
     //execute ppu for N cycles per cpu cycle only if LCD is on!

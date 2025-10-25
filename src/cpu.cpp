@@ -55,8 +55,6 @@ void cpu::initialize(std::string rom) {
 
     std::cout << "MAPPER: " << std::hex << +mapper << "\n";
 
-
-
 }
 
 int cpu::execute() {
@@ -68,6 +66,10 @@ int cpu::execute() {
     uint8_t  n8  =  mem.rd(PC + 1);
     uint16_t a8 = 0xFF00 + n8;
     int8_t  e8 = static_cast<int8_t>(n8);
+
+    uint8_t IE = mem.rd(0xFFFF);
+    uint8_t IF = mem.rd(0xFF0F);
+    uint8_t pending = IE & IF;
 
     if (ime_schedule) {
         IME = true;
@@ -82,8 +84,13 @@ int cpu::execute() {
         ime_schedule = true;
         enable_pending = false;
     }
-    //decode
 
+    //decode
+    if (halted) {
+        if (pending) {
+            halted = false;
+        }
+    }
 
     switch(opcode) {
 
@@ -105,7 +112,7 @@ int cpu::execute() {
         case 0x0F: set_A(RRC(get_A())); set_ZF(false); PC++; cycles = 4; break;
 
 
-        case 0x10: if(n8 == 0x00) {stopped = true;} PC += 2; cycles = 4; break;
+        case 0x10: stop(n8); cycles = 4; break;
         case 0x11: DE = n16; PC += 3; cycles = 12; break;
         case 0x12: mem.ld(get_A(), DE); PC++; cycles = 8; break;
         case 0x13: inc_DE(); PC++; cycles = 8; break;
@@ -219,7 +226,7 @@ int cpu::execute() {
         case 0x73: mem.ld(get_E(), HL); PC++; cycles = 8; break;
         case 0x74: mem.ld(get_H(), HL); PC++; cycles = 8; break;
         case 0x75: mem.ld(get_L(), HL); PC++; cycles = 8; break;
-        case 0x76: halted = true; PC++; cycles = 4; break;
+        case 0x76: halt(); PC++; cycles = 4; break;
         case 0x77: mem.ld(get_A(), HL); PC++; cycles = 8; break;
         case 0x78: set_A(get_B()); PC++; cycles = 4; break;
         case 0x79: set_A(get_C()); PC++; cycles = 4; break;
@@ -379,19 +386,19 @@ int cpu::execute() {
             PC++;
     }
 
+    /*
     if ((mem.rd(0xFFFF) & mem.rd(0xFF0F)) != 0)
     std::cout << "Interrupt pending! IE=" << std::hex << +mem.rd(0xFFFF)
               << " IF=" << +mem.rd(0xFF0F)
               << " IME=" << IME << "\n";
-              
-    uint8_t IE = mem.rd(0xFFFF);
-    uint8_t IF = mem.rd(0xFF0F);
-    uint8_t pending = IE & IF;
-    if (halted) {
-        if (pending) {
-            halted = false;
-            if (!IME) haltBug = true;
-        }
+    */      
+
+
+    if (halted && pending) {
+
+        halted = false;
+        if (!IME) haltBug = true;
+
     }
 
     if (IME && pending) {
@@ -702,7 +709,6 @@ void cpu::PREFIXED() {
 
 
         default:
-            // std::cout << "UNKNOWN PREFIXED OPCODE!! " << +mem.rd(PC) << "\n";
             break;
     }
 }
@@ -1159,3 +1165,18 @@ void cpu::DAA() {
     set_CF(set_carry);
 }
 
+void cpu::stop(uint8_t n8) {
+    if(n8 == 0x00) {
+        stopped = true;
+    
+    }
+    PC += 2;
+    mem.ld(0, 0xFF04);
+}
+
+void cpu::halt() {
+    if (IME == 0) {
+
+    }
+    halted = true;
+}

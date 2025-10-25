@@ -115,6 +115,9 @@ void mmu::ld(uint8_t data, uint16_t address) {
             IO[0x0F] |= 0x08;
         }
     }
+    else if (address == 0xFF04) {
+        IO[4] = 0;
+    }
     else if (address == 0xFF0F) { // Interrupt Flag
         IO[0x0F] = (data & 0x1F) | 0xE0;
         return;
@@ -160,7 +163,7 @@ uint8_t  mmu::rd(uint16_t address) {
         return cart.romBank[address]; 
     }
     else if (address >= 0x4000 && address <= 0x7FFF) { //ROMBANK 1 (CHANGES DEPENDING ON MAPPER)
-        
+
         uint8_t mapper = cart.romBank[0x147];
 
         if (mapper != 0) {
@@ -173,9 +176,15 @@ uint8_t  mmu::rd(uint16_t address) {
                 rom_bank_number_final = (rom_bank_number & 0b00011111) | upper_bits;
             }
 
-            if (rom_bank_number_final == 0 || rom_bank_number_final == 0x20 || 
-                rom_bank_number_final == 0x40 || rom_bank_number_final == 0x60) {
-                rom_bank_number_final += 1;
+            if (mapper == 0x1B) {
+                if (rom_bank_number_final == 0) {
+                    rom_bank_number_final == 0;
+                }
+            } else {
+                if (rom_bank_number_final == 0x20 || 
+                    rom_bank_number_final == 0x40 || rom_bank_number_final == 0x60) {
+                    rom_bank_number_final += 1;
+                }
             }
             return cart.romBank[(address - 0x4000) + (rom_bank_number_final * 0x4000)];
 

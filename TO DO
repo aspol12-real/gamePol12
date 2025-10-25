@@ -1,25 +1,22 @@
 short term:
 
 - finish ppu implementation {
-    - finish 16 px tall sprite rendering
     - fix window rendering
+    - fix inverted sprite palettes
 }
 
 -- fix opcodes: HALT, STOP, 0xFB
 
-- get all blargg cpu tests working
+- get all blargg cpu tests working (02_interrupts.gb / EI failing)
 
 - figure out why tetris input is wonky
-- figure out why pokemon crashes past title screen
+- figure out why pokemon crashes & link's awakening past title screen
 
-- why do links awakening and super mario land 1 kick back out to title screen?
 
 long term:
 
 - overhaul debugger to use a better gui method (RAYGUI!), and include a live memory viewer (?)
-
 - get some cool games working :DD
-
 
 far future:
 

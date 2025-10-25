@@ -97,7 +97,9 @@ void ppu::render_scanline(int LY) {
     bool bgPriority   = LCDC & 0x01;
 
     background_fifo.clear();
+
     fetch_tile_row(0, LY);
+    
     int discard_count = SCX % 8;
     int current_pixel_x = 0;
 

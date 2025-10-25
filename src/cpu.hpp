@@ -15,7 +15,6 @@ class cpu {
 
         cpu(mmu& shared_memory) : mem(shared_memory){};
 
-        
         bool IME = true;
         bool ime_schedule = false;
         bool enable_pending = false;
@@ -150,5 +149,7 @@ class cpu {
         void PUSH(uint16_t addr);
         void POP(uint16_t& reg);
         void CP(uint8_t a, uint8_t b);
+        void stop(uint8_t n8);
+        void halt();
 
 };
