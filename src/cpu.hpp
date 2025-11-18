@@ -151,5 +151,6 @@ class cpu {
         void CP(uint8_t a, uint8_t b);
         void stop(uint8_t n8);
         void halt();
+        void handle_interrupts(bool pending);
 
 };

@@ -35,8 +35,6 @@ uint8_t g_polled_directions = 0x0F;
 bool dpad_enable = false;
 bool buttons_enable = false;
 
-
-
 //declarations
 void render_screen(ppu& graphics);
 void draw_debug_overlay(cpu& gb, mmu& mem, Font customfont);
@@ -45,13 +43,13 @@ void handle_inputs(cpu& gb, mmu& mem, ppu& graphics);
 void tick_peripherals(mmu& mem, ppu& graphics, int cycles);
 void render_all(cpu& gb, mmu& mem, ppu& graphics, Font customfont);
 
-mmu mem;
-ppu graphics(mem);
-mem.connect_ppu(&graphics);
-cpu gb(mem);
-
 //it's showtime, folks
 int main(int argc, char *argv[]){
+
+    mmu mem;
+    ppu graphics(mem);
+    mem.connect_ppu(&graphics);
+    cpu gb(mem);
 
     if (argc < 2) {
         std::cout << "USAGE: ./gb [filename].gb \n";
@@ -179,79 +177,85 @@ void draw_tilemap_viewer(cpu& gb, ppu& graphics, int startX, int startY) {
 
 void handle_inputs(cpu& gb, mmu& mem, ppu& graphics) {
     g_polled_actions = 0x0F;
-        g_polled_directions = 0x0F;
-
-        if (IsKeyDown(KEY_Z)) g_polled_actions &= ~0x01; 
-        if (IsKeyDown(KEY_X)) g_polled_actions &= ~0x02; 
-        if (IsKeyDown(KEY_RIGHT_SHIFT)) g_polled_actions &= ~0x04; 
-        if (IsKeyDown(KEY_ENTER)) g_polled_actions &= ~0x08; 
-
-        if (IsKeyDown(KEY_RIGHT)) g_polled_directions &= ~0x01; 
-        if (IsKeyDown(KEY_LEFT)) g_polled_directions &= ~0x02;
-        if (IsKeyDown(KEY_UP)) g_polled_directions &= ~0x04; 
-        if (IsKeyDown(KEY_DOWN)) g_polled_directions &= ~0x08;
+    g_polled_directions = 0x0F;
 
 
-        if(run) {
-            if (IsKeyPressed(KEY_W)) {
-                run = false;
+    //gameboy inputs
+
+    if (IsKeyDown(KEY_Z)) g_polled_actions &= ~0x01; 
+    if (IsKeyDown(KEY_X)) g_polled_actions &= ~0x02; 
+    if (IsKeyDown(KEY_RIGHT_SHIFT)) g_polled_actions &= ~0x04; 
+    if (IsKeyDown(KEY_ENTER)) g_polled_actions &= ~0x08; 
+
+    if (IsKeyDown(KEY_RIGHT)) g_polled_directions &= ~0x01; 
+    if (IsKeyDown(KEY_LEFT)) g_polled_directions &= ~0x02;
+    if (IsKeyDown(KEY_UP)) g_polled_directions &= ~0x04; 
+    if (IsKeyDown(KEY_DOWN)) g_polled_directions &= ~0x08;
+
+
+
+    //software inputs
+
+    if(run) {
+        if (IsKeyPressed(KEY_W)) {
+            run = false;
+        }
+
+    } else {
+        if (IsKeyPressed(KEY_Q)) {
+            run = true;
+        }
+        if (IsKeyPressed(KEY_S)) {
+            int cycles_executed = gb.execute();
+            tick_peripherals(mem, graphics, cycles_executed);
+            if (gb.halted){
+                std::cout << "HALTED!\n";
             }
-
-        } else {
-            if (IsKeyPressed(KEY_Q)) {
-                run = true;
-            }
-            if (IsKeyPressed(KEY_S)) {
+        }
+        if (IsKeyDown(KEY_D)) {
+            for (int i = 0; i < 100; i++) {
                 int cycles_executed = gb.execute();
                 tick_peripherals(mem, graphics, cycles_executed);
-                if (gb.halted){
-                    std::cout << "HALTED!\n";
-                }
-            }
-            if (IsKeyDown(KEY_D)) {
-                for (int i = 0; i < 100; i++) {
-                    int cycles_executed = gb.execute();
-                    tick_peripherals(mem, graphics, cycles_executed);
-                }
-            }
-            if (IsKeyPressed(KEY_P)) {
-                std::cout << "\n\n\n\n";
-                for (int i = 0; i < 0xFFFF; i++) {
-                    std::cout << std::hex << +mem.rd(i) << " ";
-                }
-                std::cout << "\n\n"; 
             }
         }
-        if (IsKeyPressed(KEY_TAB)) {
-                debug = true;
+        if (IsKeyPressed(KEY_P)) {
+            std::cout << "\n\n\n\n";
+            for (int i = 0; i < 0xFFFF; i++) {
+                std::cout << std::hex << +mem.rd(i) << " ";
             }
-            if (IsKeyPressed(KEY_LEFT_SHIFT)) {
-                debug = false;
-            }
-        
-        if (IsKeyPressed(KEY_SPACE)) {
-            if (!screenOnly) {
-                screenOnly = true;
-            } else {
-                screenOnly = false;
-            }
+            std::cout << "\n\n"; 
         }
-        //pallette switching
-        if (IsKeyPressed(KEY_ONE)) {
-            current_Pallete = palette1;
+    }
+    if (IsKeyPressed(KEY_TAB)) {
+            debug = true;
         }
-        if (IsKeyPressed(KEY_TWO)) {
-            current_Pallete = palette2;
+        if (IsKeyPressed(KEY_LEFT_SHIFT)) {
+            debug = false;
         }
-        if (IsKeyPressed(KEY_THREE)) {
-            current_Pallete = palette3;
+    
+    if (IsKeyPressed(KEY_SPACE)) {
+        if (!screenOnly) {
+            screenOnly = true;
+        } else {
+            screenOnly = false;
         }
-        if (IsKeyPressed(KEY_FOUR)) {
-            current_Pallete = palette4;
-        }
-        if (IsKeyPressed(KEY_FIVE)) {
-            current_Pallete = palette5;
-        }
+    }
+    //pallette switching
+    if (IsKeyPressed(KEY_ONE)) {
+        current_Pallete = palette1;
+    }
+    if (IsKeyPressed(KEY_TWO)) {
+        current_Pallete = palette2;
+    }
+    if (IsKeyPressed(KEY_THREE)) {
+        current_Pallete = palette3;
+    }
+    if (IsKeyPressed(KEY_FOUR)) {
+        current_Pallete = palette4;
+    }
+    if (IsKeyPressed(KEY_FIVE)) {
+        current_Pallete = palette5;
+    }
 }
 
 void tick_peripherals(mmu& mem, ppu& graphics, int cycles) {
@@ -295,18 +299,18 @@ void tick_peripherals(mmu& mem, ppu& graphics, int cycles) {
         }
     }
 
-    //increment div
-    uint8_t div = mem.rd(0xFF04);
-    div++;
-    mem.ld(div, 0xFF04);
+    //increment div cycles
+    
+    mem.div++;
 
 
     //execute ppu for N cycles per cpu cycle only if LCD is on!
     if (mem.rd(0xFF40) & 0x80) {
         for (int i = 0; i < cycles; i++) {
-            graphics.tick();
+                graphics.tick();
         }
-    } else {
+    }
+    else {
         graphics.set_ppu_mode(graphics.h_blank);
         uint8_t temp = mem.rd(0xFF40);
         temp &= 0x11111100;
@@ -317,23 +321,23 @@ void tick_peripherals(mmu& mem, ppu& graphics, int cycles) {
 
 void render_all(cpu& gb, mmu& mem, ppu& graphics, Font customfont) {
     BeginDrawing();
-        ClearBackground({13, 12, 36, 255});
+    ClearBackground({13, 12, 36, 255});
 
-        if (mem.rd(0xFF40) & 0x80) {
-            render_screen(graphics);
+    if (mem.rd(0xFF40) & 0x80) {
+        render_screen(graphics);
+    }
+
+    if (!screenOnly) {
+        SetWindowSize(screenWidth, screenHeight);
+        if (debug) {
+            draw_debug_overlay(gb, mem, customfont);
+        } else {  
+            uint8_t stat_mode = mem.rd(0xFF41) & 0b11;
+            draw_tilemap_viewer(gb, graphics, debugX, 0);
         }
+    } else {
+        SetWindowSize(screenWidth - screenMarginSides, screenHeight);
+    }
 
-        if (!screenOnly) {
-            SetWindowSize(screenWidth, screenHeight);
-            if (debug) {
-                draw_debug_overlay(gb, mem, customfont);
-            } else {  
-                uint8_t stat_mode = mem.rd(0xFF41) & 0b11;
-                draw_tilemap_viewer(gb, graphics, debugX, 0);
-            }
-        } else {
-            SetWindowSize(screenWidth - screenMarginSides, screenHeight);
-        }
-
-        EndDrawing();
+    EndDrawing();
 }

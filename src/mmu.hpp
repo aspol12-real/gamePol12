@@ -26,6 +26,8 @@ class mmu {
 
         uint8_t dataRet = 0;
 
+        uint16_t div = 0;
+
         //WRAM 1 & 2
         uint8_t WRAM_1[4096];
         uint8_t WRAM_2[4096];  

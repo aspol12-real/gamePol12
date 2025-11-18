@@ -1,16 +1,17 @@
 short term:
 
+- IMPLEMENT STAT HANDLING!!!!
+
 - finish ppu implementation {
     - fix window rendering
     - fix inverted sprite palettes
 }
 
--- fix opcodes: HALT, STOP, 0xFB
+-- fix opcodes: HALT, STOP (for later), 0xFB
 
 - get all blargg cpu tests working (02_interrupts.gb / EI failing)
 
-- figure out why tetris input is wonky
-- figure out why pokemon crashes & link's awakening past title screen
+- figure out why pokemon crashes & link's awakening past title screen (most likely due to ERAM)
 
 
 long term:

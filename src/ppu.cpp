@@ -1,7 +1,7 @@
 #include "ppu.hpp"
 #include "mmu.hpp"
 
-void ppu::tick() {
+void ppu::tick() { //starts at 1
 
     clocks++; //increment clocks ONCE per tick
 
@@ -51,6 +51,8 @@ void ppu::tick() {
         LY++;
 
         if (LY == 144) { //ENTER VBLANK SCANLINE PERIOD
+
+            //set v-blank interrupt flag
             uint8_t temp = mem.rd(0xFF0F);
             temp |= 0x1;
             mem.ld(temp, 0xFF0F);
@@ -102,7 +104,7 @@ void ppu::render_scanline(int LY) {
     
     int discard_count = SCX % 8;
     int current_pixel_x = 0;
-
+    
     for (int i = 0; i < discard_count; ++i) {
         if (!background_fifo.empty()) {
             background_fifo.pop_front();
@@ -134,6 +136,7 @@ void ppu::render_scanline(int LY) {
     }
 
     if (objEnable) {
+
         for (int j = 0; j < spritesFound; j++) {
             uint8_t obj_y = spritebuffer[j * 4];
             uint8_t obj_x = spritebuffer[j * 4 + 1];
@@ -145,17 +148,24 @@ void ppu::render_scanline(int LY) {
             bool y_flip        = obj_attributes & 0x40;
             bool bg_priority   = obj_attributes & 0x80;
             
-            int spriteHeight = (LCDC & 0x04) ? 16 : 8;
+            int spriteHeight = (objSize) ? 16 : 8;
 
             if (LY >= (obj_y - 16) && LY < (obj_y - 16 + spriteHeight)) {
+
+
                 uint8_t row = LY - (obj_y - 16); 
-                if (y_flip) row = (spriteHeight - 1) - row;
+
+
+                if (y_flip) {
+                    row = (spriteHeight - 1) - row;
+                }
                 
                 uint8_t tile_index_to_use = obj_index;
+
                 if (spriteHeight == 16) {
                     tile_index_to_use &= 0xFE; 
                     if (row >= 8) {
-                        tile_index_to_use |= 0x01;
+                        tile_index_to_use += 1;
                         row -= 8;
                     }
                 }
@@ -164,18 +174,22 @@ void ppu::render_scanline(int LY) {
                 uint8_t low_byte  = mem.rd(tile_addr);
                 uint8_t high_byte = mem.rd(tile_addr + 1);
 
-                for (int x = 0; x < 8; x++) {
+                for (int x = 0; x < 8; x++) { // pixels in the sprite
+
                     int pixel_x = obj_x - 8 + x; 
-                    if (pixel_x < 0 || pixel_x >= GB_WIDTH) continue;
+                    if (pixel_x < 0 || pixel_x >= GB_WIDTH) continue; //off-screen rendering
 
                     int bit = x_flip ? x : 7 - x;
+
+
                     uint8_t color_index = ((high_byte >> bit) & 1) << 1 | ((low_byte >> bit) & 1);
 
-                    if (color_index == 0) continue; 
+                    if (color_index == 0) continue; //0 is transparent
 
-                    if (bg_priority && bg_raw_colors[pixel_x] != 0) continue;
+                    if (bg_priority && (bg_raw_colors[pixel_x] != 0)) continue;
 
                     uint8_t palette_addr = use_palette1 ? 0xFF49 : 0xFF48;
+
                     uint8_t final_color = get_color(color_index, palette_addr);
 
                     final_colors[pixel_x] = final_color;
@@ -242,7 +256,9 @@ void ppu::fetch_tile_row(int current_pixel_x, int scanline_y) {
 
     uint8_t tile_y_offset;
     uint16_t tile_num_addr_base;
+
     uint16_t tile_data_addr_base = (bgWinTile) ? 0x8000 : 0x9000;
+
     uint8_t tile_num;
 
     if (drawing_window) {
@@ -255,6 +271,7 @@ void ppu::fetch_tile_row(int current_pixel_x, int scanline_y) {
         
         uint16_t tile_num_addr = tile_num_addr_base + map_y * 32 + map_x;
         tile_num = mem.rd(tile_num_addr);
+
     } else {
 
         uint8_t map_y = ((scanline_y + SCY) / 8) & 0x1F; 
@@ -268,6 +285,7 @@ void ppu::fetch_tile_row(int current_pixel_x, int scanline_y) {
 
 
     uint16_t tile_data_addr;
+
     if (bgWinTile) {
         tile_data_addr = tile_data_addr_base + (tile_num * 16) + tile_y_offset * 2;
     } else {

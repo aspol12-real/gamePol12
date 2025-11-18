@@ -92,6 +92,11 @@ int cpu::execute() {
         }
     }
 
+    if (haltBug) {
+        PC--;
+        haltBug = false;
+    }
+
     switch(opcode) {
 
         case 0x00: PC++; cycles = 4; break; //NOP
@@ -379,7 +384,7 @@ int cpu::execute() {
         //ILLEGAL OPCODE 0xFC
         //ILLEGAL OPCODE 0xFD
         case 0xFE: CP(get_A(), n8); PC += 2; cycles = 8; break;
-        case 0xFF: PUSH(PC + 1); PC = 0x38; cycles = 16; break;
+        case 0xFF: PUSH(PC + 1); PC = 0x38; cycles = 16; break;  // RST $38
 
         default:
             std::cout << "UNKNOWN OPCODE: " << std::hex << +opcode << "\n";
@@ -393,27 +398,8 @@ int cpu::execute() {
               << " IME=" << IME << "\n";
     */      
 
+    handle_interrupts(pending);
 
-    if (halted && pending) {
-
-        halted = false;
-        if (!IME) haltBug = true;
-
-    }
-
-    if (IME && pending) {
-        IME = false;
-        halted = false;
-        for (int i = 0; i < 5; i++) {
-            if (pending & (1 << i)) {
-                mem.ld(IF & ~(1 << i), 0xFF0F);
-                PUSH(PC);
-                PC = 0x0040 | (i * 0x08);
-                cycles += 20;
-                break;
-            }
-        }
-    }
     return cycles;
 }
 
@@ -1168,7 +1154,6 @@ void cpu::DAA() {
 void cpu::stop(uint8_t n8) {
     if(n8 == 0x00) {
         stopped = true;
-    
     }
     PC += 2;
     mem.ld(0, 0xFF04);
@@ -1176,7 +1161,45 @@ void cpu::stop(uint8_t n8) {
 
 void cpu::halt() {
     if (IME == 0) {
+        if ((mem.rd(0xFFFF) & mem.rd(0xFF0F) != 0)) {
 
+        }
+        else {
+            haltBug = true;
+        }
     }
     halted = true;
+}
+
+void cpu::handle_interrupts(bool pending) {
+
+    
+    if (IME && pending) {  //if there is a pending interrupt AND interrupt handling is enabled...
+
+        uint8_t IF = mem.rd(0xFF0F);
+        IME = false;
+        halted = false;
+
+        for (int i = 0; i < 5; i++) { 
+            if (pending & (1 << i)) {           //check each possible interrupt flag
+                mem.ld(IF & ~(1 << i), 0xFF0F); //unset this flag if set
+                PUSH(PC);                       //push pc
+                switch(i) {
+                    case 0: //vblank
+                        PC = 0x40; break;
+                    case 1: //STAT
+                        PC = 0x48; break;
+                    case 2: //Timer
+                        PC = 0x50; break;
+                    case 3: //Serial
+                        PC = 0x58; break;
+                    case 4: //Joypad
+                        PC = 0x60; break;
+                }     //handle interrupt based on which flag
+                cycles += 20; 
+                break;
+            }
+        }
+    }
+
 }

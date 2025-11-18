@@ -116,10 +116,13 @@ void mmu::ld(uint8_t data, uint16_t address) {
         }
     }
     else if (address == 0xFF04) {
-        IO[4] = 0;
+        div = 0;
     }
     else if (address == 0xFF0F) { // Interrupt Flag
         IO[0x0F] = (data & 0x1F) | 0xE0;
+        return;
+    }
+    else if (address == 0xFF44) {
         return;
     }
     else if (address == 0xFF46) { //OAM DMA TRANSFER
@@ -133,7 +136,15 @@ void mmu::ld(uint8_t data, uint16_t address) {
 
         IO[0x46] = data;
     }
-
+    else if (address ==  0xFF47) {
+        IO[0x47] = data;
+    }
+    else if (address ==  0xFF48) {
+        IO[0x48] = data;
+    }
+    else if (address ==  0xFF49) {
+        IO[0x49] = data;
+    }
     else if (address == 0xFF50) {
         bootRomEnabled = false; 
         std::cout << "Boot Rom Disabled!\n";
@@ -266,6 +277,9 @@ uint8_t  mmu::rd(uint16_t address) {
     } 
     else if (address == 0xFF01) {
         return IO[1];
+    }
+    else if (address == 0xFF04) {
+        return (div & 0xFF00) >> 8;
     }
     else if (address == 0xFF0F) {
         return IO[0x0F] | 0xE0;
