@@ -3,5 +3,5 @@
 
  ---------------------
 
-currently supports kirby's dreamland 1, metroid and Deadeus!
+currently supports kirby's dreamland 1, metroid, tetris, dr mario, and Deadeus!
 very very wip still
