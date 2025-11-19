@@ -136,15 +136,6 @@ void mmu::ld(uint8_t data, uint16_t address) {
 
         IO[0x46] = data;
     }
-    else if (address ==  0xFF47) {
-        IO[0x47] = data;
-    }
-    else if (address ==  0xFF48) {
-        IO[0x48] = data;
-    }
-    else if (address ==  0xFF49) {
-        IO[0x49] = data;
-    }
     else if (address == 0xFF50) {
         bootRomEnabled = false; 
         std::cout << "Boot Rom Disabled!\n";
@@ -163,6 +154,8 @@ void mmu::ld(uint8_t data, uint16_t address) {
         return;
     }
 }
+
+
 
 uint8_t  mmu::rd(uint16_t address) {
 
@@ -284,7 +277,10 @@ uint8_t  mmu::rd(uint16_t address) {
     else if (address == 0xFF0F) {
         return IO[0x0F] | 0xE0;
     }
-    else if (address >= 0xFF00 && address <= 0xFF7F) { //I/O registers
+    else if (address == 0xFF44) {
+        return graphics->LY;
+    }
+    else if (address >= 0xFF00 && address <= 0xFF7F) { // I/O registers
         return IO[address - 0xFF00];
     }
     else if (address >= 0xFF80 && address <= 0xFFFE) { //HRAM

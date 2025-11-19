@@ -57,15 +57,9 @@ void cpu::initialize(std::string rom) {
 
 }
 
+
+
 int cpu::execute() {
-
-    //get current opcode
-    opcode = mem.rd(PC);
-
-    uint16_t n16 = (mem.rd(PC + 2) << 8) | mem.rd(PC + 1);
-    uint8_t  n8  =  mem.rd(PC + 1);
-    uint16_t a8 = 0xFF00 + n8;
-    int8_t  e8 = static_cast<int8_t>(n8);
 
     uint8_t IE = mem.rd(0xFFFF);
     uint8_t IF = mem.rd(0xFF0F);
@@ -90,12 +84,23 @@ int cpu::execute() {
         if (pending) {
             halted = false;
         }
+        cycles = 4;
+        return cycles;
     }
 
     if (haltBug) {
-        PC--;
         haltBug = false;
     }
+
+
+    //get current opcode
+    opcode = mem.rd(PC);
+
+    uint16_t n16 = (mem.rd(PC + 2) << 8) | mem.rd(PC + 1);
+    uint8_t  n8  =  mem.rd(PC + 1);
+    uint16_t a8 = 0xFF00 + n8;
+    int8_t  e8 = static_cast<int8_t>(n8);
+
 
     switch(opcode) {
 
@@ -391,12 +396,6 @@ int cpu::execute() {
             PC++;
     }
 
-    /*
-    if ((mem.rd(0xFFFF) & mem.rd(0xFF0F)) != 0)
-    std::cout << "Interrupt pending! IE=" << std::hex << +mem.rd(0xFFFF)
-              << " IF=" << +mem.rd(0xFF0F)
-              << " IME=" << IME << "\n";
-    */      
 
     handle_interrupts(pending);
 
@@ -981,6 +980,7 @@ uint16_t cpu::SPADD(uint8_t byte) {
 
     return static_cast<uint16_t>(result);
 }
+
 uint32_t cpu::ADD16(uint16_t a, uint16_t b) {
     uint32_t result = a + b;
 
@@ -1114,6 +1114,7 @@ uint8_t cpu::SET(uint8_t bit, uint8_t reg) {
 
 
 void cpu::DAA() {
+
     uint8_t offset = 0;
     uint8_t a = get_A();
     uint8_t hf = get_HF();

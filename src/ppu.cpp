@@ -50,6 +50,21 @@ void ppu::tick() { //starts at 1
         x = 0;
         LY++;
 
+        uint8_t LYC = mem.rd(0xFF45);
+
+        if (LY == LYC) {
+            
+            uint8_t STAT = mem.rd(0xFF41); //STAT
+            STAT |= 0x2; //enable flag for LY == LYC
+            mem.ld(STAT, 0xFF41);
+
+            //set v-blank
+            uint8_t IF = mem.rd(0xFF0F);
+            IF |= 0x2;
+            mem.ld(IF, 0xFF0F);
+
+        }
+
         if (LY == 144) { //ENTER VBLANK SCANLINE PERIOD
 
             //set v-blank interrupt flag

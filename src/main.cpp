@@ -43,6 +43,7 @@ void handle_inputs(cpu& gb, mmu& mem, ppu& graphics);
 void tick_peripherals(mmu& mem, ppu& graphics, int cycles);
 void render_all(cpu& gb, mmu& mem, ppu& graphics, Font customfont);
 
+
 //it's showtime, folks
 int main(int argc, char *argv[]){
 
@@ -113,7 +114,7 @@ void render_screen(ppu& graphics) {
 }
 
 void draw_debug_overlay(cpu& gb, mmu& mem, Font customfont) {
-
+    
     DrawTextEx(customfont, TextFormat("AF: %04x, BC: %04x", gb.AF, gb.BC), {debugX, 0}, 32.0, 2.0, GREEN);
     DrawTextEx(customfont, TextFormat("DE: %04x, HL: %04x", gb.DE, gb.HL), {debugX, 30}, 32.0, 2.0, GREEN);
     DrawTextEx(customfont, TextFormat("SP: %04x, PC: %04x", gb.SP, gb.PC), {debugX, 60}, 32.0, 2.0, GREEN);
@@ -253,9 +254,6 @@ void handle_inputs(cpu& gb, mmu& mem, ppu& graphics) {
     if (IsKeyPressed(KEY_FOUR)) {
         current_Pallete = palette4;
     }
-    if (IsKeyPressed(KEY_FIVE)) {
-        current_Pallete = palette5;
-    }
 }
 
 void tick_peripherals(mmu& mem, ppu& graphics, int cycles) {
@@ -307,7 +305,7 @@ void tick_peripherals(mmu& mem, ppu& graphics, int cycles) {
     //execute ppu for N cycles per cpu cycle only if LCD is on!
     if (mem.rd(0xFF40) & 0x80) {
         for (int i = 0; i < cycles; i++) {
-                graphics.tick();
+            graphics.tick();
         }
     }
     else {
