@@ -1011,105 +1011,11 @@ uint8_t cpu::SWAP(uint8_t reg) {
 }
 
 uint8_t cpu::RES(uint8_t bit, uint8_t reg) {
-
-    switch (bit) {
-        case 0:
-
-            return reg & 0b11111110;
-
-            break;
-        case 1:
-
-            return reg & 0b11111101;
-
-            break;
-        case 2:
-
-            return reg & 0b11111011;
-
-            break;
-        case 3:
-
-            return reg & 0b11110111;
-
-            break;
-        case 4:
-
-            return reg & 0b11101111;
-
-            break;
-        case 5:
-
-            return reg & 0b11011111;
-
-            break;
-        case 6:
-
-            return reg & 0b10111111;
-
-            break;
-        case 7:
-
-            return reg & 0b01111111;
-
-            break;
-        default:
-            std::cout << "INVALID BIT \n";
-            return 0;
-            break;  
-
-    }
+    return reg & ~(0x1 << bit);
 }
 
 uint8_t cpu::SET(uint8_t bit, uint8_t reg) {
-
-    switch (bit) {
-        case 0:
-
-            return reg | 0b00000001;
-
-            break;
-        case 1:
-
-            return reg | 0b00000010;
-
-            break;
-        case 2:
-
-            return reg | 0b00000100;
-
-            break;
-        case 3:
-
-            return reg | 0b00001000;
-
-            break;
-        case 4:
-
-            return reg | 0b00010000;
-
-            break;
-        case 5:
-
-            return reg | 0b00100000;
-
-            break;
-        case 6:
-
-            return reg | 0b01000000;
-
-            break;
-        case 7:
-
-            return reg | 0b10000000;
-
-            break;
-        default:
-            std::cout << "INVALID BIT \n";
-            return 0;
-            break;  
-
-    }
+    return reg | (0x1 << bit);
 }
 
 
